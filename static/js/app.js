@@ -1,6 +1,7 @@
 /**
- * APPLICATION NEUROSITY MONITOR
+ * APPLICATION NEUROSITY MONITOR - FICHIER COMPLET RÉÉCRIT
  * Interface utilisateur adaptée à la détection biologique réelle
+ * Avec Sessions Manager optimisé pour milliers de fichiers
  */
 
 // État global de l'application
@@ -18,7 +19,179 @@ window.AppState = {
     },
     connectionHealth: true,
     lastDataTime: null,
-    detectionInProgress: false
+    detectionInProgress: false,
+    debugMode: false
+};
+
+// ===============================================
+// NOUVEAU: SESSIONS MANAGER OPTIMISÉ
+// ===============================================
+
+window.SessionsManager = {
+    allSessions: [],
+    visibleSessions: [],
+    currentPage: 0,
+    itemsPerPage: 50, // Afficher 50 sessions à la fois
+    isVirtualizationEnabled: false,
+    scrollContainer: null,
+
+    init() {
+        this.scrollContainer = document.querySelector('.sessions-scroll-container');
+        if (this.scrollContainer) {
+            this.setupScrollHandlers();
+        }
+    },
+
+    setupScrollHandlers() {
+        if (!this.scrollContainer) return;
+
+        // Détection du scroll pour lazy loading
+        this.scrollContainer.addEventListener('scroll', this.throttle(() => {
+            this.handleScroll();
+            this.updateScrollIndicators();
+        }, 100));
+
+        // Observer pour détecter les changements de contenu
+        const observer = new MutationObserver(() => {
+            this.updateScrollIndicators();
+        });
+
+        observer.observe(this.scrollContainer, {
+            childList: true,
+            subtree: true
+        });
+    },
+
+    updateScrollIndicators() {
+        if (!this.scrollContainer) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = this.scrollContainer;
+        const hasScroll = scrollHeight > clientHeight;
+
+        if (hasScroll) {
+            this.scrollContainer.classList.add('has-scroll');
+        } else {
+            this.scrollContainer.classList.remove('has-scroll');
+        }
+
+        // Ajouter classe pour optimiser les performances avec beaucoup d'éléments
+        if (this.allSessions.length > 100) {
+            this.scrollContainer.classList.add('many-sessions');
+        } else {
+            this.scrollContainer.classList.remove('many-sessions');
+        }
+    },
+
+    handleScroll() {
+        if (!this.isVirtualizationEnabled || !this.scrollContainer) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = this.scrollContainer;
+        const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
+
+        // Charger plus d'éléments quand on approche de la fin
+        if (scrollPercentage > 0.8 && this.hasMoreSessions()) {
+            this.loadMoreSessions();
+        }
+    },
+
+    hasMoreSessions() {
+        return (this.currentPage + 1) * this.itemsPerPage < this.allSessions.length;
+    },
+
+    loadMoreSessions() {
+        if (!this.hasMoreSessions()) return;
+
+        this.currentPage++;
+        const startIndex = this.currentPage * this.itemsPerPage;
+        const endIndex = Math.min(startIndex + this.itemsPerPage, this.allSessions.length);
+
+        const newSessions = this.allSessions.slice(startIndex, endIndex);
+        this.visibleSessions.push(...newSessions);
+
+        this.appendSessionsToDOM(newSessions);
+
+        // Notification discrète
+        if (window.showToast) {
+            window.showToast(
+                `📄 ${newSessions.length} sessions supplémentaires chargées`,
+                'info',
+                2000
+            );
+        }
+    },
+
+    appendSessionsToDOM(sessions) {
+        const sessionsList = document.getElementById('sessionsList');
+        if (!sessionsList) return;
+
+        const fragment = document.createDocumentFragment();
+
+        sessions.forEach((session, index) => {
+            const sessionElement = this.createSessionElement(session, this.visibleSessions.length - sessions.length + index);
+            fragment.appendChild(sessionElement);
+        });
+
+        sessionsList.appendChild(fragment);
+    },
+
+    createSessionElement(session, index) {
+        const sessionItem = document.createElement('div');
+        sessionItem.className = 'session-item';
+        sessionItem.style.animationDelay = `${(index % 10) * 0.05}s`; // Animation échelonnée par groupes de 10
+
+        const dateMatch = session.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+        let displayDate = 'Session';
+        let displayTime = '';
+
+        if (dateMatch) {
+            const [, year, month, day, hour, minute, second] = dateMatch;
+            displayDate = `${day}/${month}/${year}`;
+            displayTime = `${hour}:${minute}`;
+        }
+
+        sessionItem.innerHTML = `
+            <div class="session-info">
+                <div class="session-name">
+                    ${session} 
+                    <span style="color: #8b5cf6; font-size: 0.875rem;">✓</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <span>📅 ${displayDate}</span>
+                    <span>🕒 ${displayTime}</span>
+                    <span style="color: #8b5cf6;">🔬 Données biologiques validées</span>
+                </div>
+            </div>
+            <div class="session-actions">
+                <button class="btn btn-outline btn-small" onclick="downloadSession('${session}')" title="Télécharger CSV validé">
+                    <span>⬇️</span> CSV
+                </button>
+            </div>
+        `;
+
+        return sessionItem;
+    },
+
+    // Fonction throttle pour optimiser les performances
+    throttle(func, limit) {
+        let lastFunc;
+        let lastRan;
+        return function() {
+            const context = this;
+            const args = arguments;
+            if (!lastRan) {
+                func.apply(context, args);
+                lastRan = Date.now();
+            } else {
+                clearTimeout(lastFunc);
+                lastFunc = setTimeout(function() {
+                    if ((Date.now() - lastRan) >= limit) {
+                        func.apply(context, args);
+                        lastRan = Date.now();
+                    }
+                }, limit - (Date.now() - lastRan));
+            }
+        }
+    }
 };
 
 /**
@@ -32,8 +205,11 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeWebSocket();
     loadSessions();
 
+    // Initialiser le gestionnaire de sessions optimisé
+    window.SessionsManager.init();
+
     showToast('🧠 Application prête ! Détection activée - Allumez votre casque Neurosity Crown puis cliquez "Connecter"', 'info', 8000);
-    console.log('✅ Application prête avec détection');
+    console.log('✅ Application prête avec détection et Sessions Manager optimisé');
 });
 
 /**
@@ -270,7 +446,7 @@ function initializeWebSocket() {
 }
 
 /**
- * CORRECTION: Gestion dynamique du bouton de connexion
+ * Gestion dynamique du bouton de connexion
  */
 function updateConnectionButton(connected) {
     const connectBtn = document.getElementById('connectBtn');
@@ -290,7 +466,7 @@ function updateConnectionButton(connected) {
 }
 
 /**
- * CORRECTION: Fonction de déconnexion mise à jour
+ * Fonction de déconnexion mise à jour
  */
 function disconnectDevice() {
     if (!confirm('Êtes-vous sûr de vouloir déconnecter le casque ?')) {
@@ -340,7 +516,7 @@ function disconnectDevice() {
 }
 
 /**
- * CORRECTION: Connecte le casque avec interface de détection stricte
+ * Connecte le casque avec interface de détection stricte
  */
 function connectDevice() {
     const connectBtn = document.getElementById('connectBtn');
@@ -370,7 +546,7 @@ function connectDevice() {
             updateConnectionStatus(true, false, false);
             updateDeviceStatus(data.device_status || {});
 
-            // CORRECTION: Démarrer automatiquement le monitoring
+            // Démarrer automatiquement le monitoring
             setTimeout(() => {
                 console.log('🎯 Démarrage automatique du monitoring...');
                 startMonitoring();
@@ -398,7 +574,7 @@ function connectDevice() {
 }
 
 /**
- * CORRECTION: Démarre le monitoring
+ * Démarre le monitoring
  */
 function startMonitoring() {
     if (!window.AppState.socket) {
@@ -430,7 +606,7 @@ function startMonitoring() {
 }
 
 /**
- * CORRECTION: Arrête le monitoring
+ * Arrête le monitoring
  */
 function stopMonitoring() {
     if (!window.AppState.socket) {
@@ -496,7 +672,7 @@ function updateDeviceStatus(deviceStatus) {
         }
     }
 
-    // Mettre à jour le statut système si la fonction existe
+    // Mettre à jour le statut système
     if (typeof updateSystemStatus === 'function') {
         updateSystemStatus(window.AppState.isConnected, window.AppState.isMonitoring, deviceStatus);
     }
@@ -533,10 +709,11 @@ function updateMonitoringStatus(monitoring) {
 }
 
 /**
- * Initialise les graphiques
+ * Initialise les graphiques en barres pour les ondes cérébrales
+ * Utilise la Densité Spectrale de Puissance (PSD) pour voir les micro-variations
  */
 function initializeCharts() {
-    console.log('📊 Initialisation des graphiques...');
+    console.log('📊 Initialisation des graphiques PSD en barres...');
 
     const canvas = document.getElementById('brainwavesChart');
     if (!canvas) {
@@ -550,92 +727,76 @@ function initializeCharts() {
 
     const ctx = canvas.getContext('2d');
 
+    // Configuration pour graphique en barres
     window.AppState.chart = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'Delta (0.5-4 Hz)',
-                    data: [],
-                    borderColor: '#6366f1',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    borderWidth: 2
-                },
-                {
-                    label: 'Theta (4-8 Hz)',
-                    data: [],
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    borderWidth: 2
-                },
-                {
-                    label: 'Alpha (8-12 Hz)',
-                    data: [],
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    borderWidth: 2
-                },
-                {
-                    label: 'Beta (12-30 Hz)',
-                    data: [],
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    borderWidth: 2
-                },
-                {
-                    label: 'Gamma (30+ Hz)',
-                    data: [],
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    tension: 0.4,
-                    fill: false,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    borderWidth: 2
-                }
-            ]
+            labels: [
+                'Delta\n0.5-4 Hz',
+                'Theta\n4-8 Hz',
+                'Alpha\n8-12 Hz',
+                'Beta\n12-30 Hz',
+                'Gamma\n30+ Hz'
+            ],
+            datasets: [{
+                label: 'Densité Spectrale de Puissance (μV²/Hz)',
+                data: [0, 0, 0, 0, 0],
+                backgroundColor: [
+                    'rgba(99, 102, 241, 0.8)',   // Delta - Bleu indigo
+                    'rgba(139, 92, 246, 0.8)',   // Theta - Violet
+                    'rgba(16, 185, 129, 0.8)',   // Alpha - Vert
+                    'rgba(245, 158, 11, 0.8)',   // Beta - Orange
+                    'rgba(239, 68, 68, 0.8)'     // Gamma - Rouge
+                ],
+                borderColor: [
+                    '#6366f1',  // Delta
+                    '#8b5cf6',  // Theta
+                    '#10b981',  // Alpha
+                    '#f59e0b',  // Beta
+                    '#ef4444'   // Gamma
+                ],
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 0 },
+            animation: {
+                duration: 150,
+                easing: 'easeOutQuint'
+            },
             plugins: {
                 legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 20,
-                        font: {
-                            family: 'Inter',
-                            size: 12,
-                            weight: '500'
-                        }
-                    }
+                    display: false
                 },
                 title: {
                     display: true,
-                    text: 'Ondes Cérébrales Validées',
+                    text: 'Ondes Cérébrales Validées - Temps Réel',
                     font: {
                         family: 'Inter',
-                        size: 14,
+                        size: 16,
                         weight: '600'
+                    },
+                    color: '#334155',
+                    padding: 20
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#6366f1',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label.split('\n')[0];
+                        },
+                        label: function(context) {
+                            return `${context.parsed.y.toFixed(4)} μV²/Hz`;
+                        }
                     }
                 }
             },
@@ -643,50 +804,75 @@ function initializeCharts() {
                 x: {
                     title: {
                         display: true,
-                        text: 'Temps',
+                        text: 'Types d\'ondes cérébrales',
                         font: {
                             family: 'Inter',
-                            size: 12,
+                            size: 14,
                             weight: '500'
                         },
-                        color: '#64748b'
+                        color: '#64748b',
+                        padding: 10
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)',
-                        drawBorder: false
+                        display: false
                     },
                     ticks: {
-                        font: { family: 'Inter', size: 11 },
-                        color: '#94a3b8',
-                        maxTicksLimit: 10
+                        font: {
+                            family: 'Inter',
+                            size: 11,
+                            weight: '500'
+                        },
+                        color: '#64748b',
+                        maxRotation: 0,
+                        padding: 10
                     }
                 },
                 y: {
                     title: {
                         display: true,
-                        text: 'Amplitude (μV) - Données Biologiques',
+                        text: 'Densité Spectrale de Puissance (μV²/Hz)',
                         font: {
                             family: 'Inter',
-                            size: 12,
+                            size: 14,
                             weight: '500'
                         },
-                        color: '#64748b'
+                        color: '#64748b',
+                        padding: 10
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)',
-                        drawBorder: false
+                        color: 'rgba(0, 0, 0, 0.08)',
+                        drawBorder: false,
+                        lineWidth: 1
                     },
                     ticks: {
-                        font: { family: 'Inter', size: 11 },
-                        color: '#94a3b8'
+                        font: {
+                            family: 'Inter',
+                            size: 11
+                        },
+                        color: '#94a3b8',
+                        padding: 8,
+                        callback: function(value) {
+                            return value.toFixed(3) + ' μV²/Hz';
+                        }
                     },
-                    beginAtZero: true
+                    beginAtZero: true,
+                    max: 0.5
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            elements: {
+                bar: {
+                    borderRadius: 8,
+                    borderWidth: 2
                 }
             }
         }
     });
 
-    console.log('✅ Graphiques créés avec validation');
+    console.log('✅ Graphique en barres créé avec PSD (Power Spectral Density)');
 }
 
 /**
@@ -704,11 +890,10 @@ async function toggleRecording() {
 
         showToast(`🎬 ${actionText} de l'enregistrement...`, 'info');
 
-        // CORRECTION: Envoyer un JSON valide même si vide
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}) // NOUVEAU: Corps JSON vide mais valide
+            body: JSON.stringify({})
         });
 
         const result = await response.json();
@@ -764,7 +949,7 @@ async function downloadData() {
 }
 
 /**
- * CORRECTION: Met à jour l'interface utilisateur
+ * Met à jour l'interface utilisateur
  */
 function updateConnectionStatus(connected, recording, monitoring) {
     window.AppState.isConnected = connected;
@@ -777,7 +962,7 @@ function updateConnectionStatus(connected, recording, monitoring) {
     const connectionText = document.getElementById('connectionText');
     const recordingStatus = document.getElementById('recordingStatus');
 
-    // CORRECTION: Mettre à jour le bouton de connexion séparément
+    // Mettre à jour le bouton de connexion séparément
     updateConnectionButton(connected);
 
     // Statut de connexion
@@ -840,14 +1025,17 @@ function handleFocusData(data) {
     flashDataIndicator('focus');
 }
 
+/**
+ * Gestionnaire des données brainwaves pour graphique en barres
+ */
 function handleBrainwavesData(data) {
     if (!window.AppState.isConnected || !window.AppState.chart) return;
 
     window.AppState.lastDataTime = new Date();
 
-    const time = formatTime(data.timestamp);
     const chart = window.AppState.chart;
 
+    // Calculer les moyennes pour chaque type d'onde
     const avgData = {
         delta: calculateAverage(data.delta),
         theta: calculateAverage(data.theta),
@@ -856,26 +1044,37 @@ function handleBrainwavesData(data) {
         gamma: calculateAverage(data.gamma)
     };
 
-    chart.data.labels.push(time);
-    chart.data.datasets[0].data.push(avgData.delta);
-    chart.data.datasets[1].data.push(avgData.theta);
-    chart.data.datasets[2].data.push(avgData.alpha);
-    chart.data.datasets[3].data.push(avgData.beta);
-    chart.data.datasets[4].data.push(avgData.gamma);
+    // Mettre à jour les données du graphique en barres
+    chart.data.datasets[0].data = [
+        avgData.delta,
+        avgData.theta,
+        avgData.alpha,
+        avgData.beta,
+        avgData.gamma
+    ];
 
-    if (chart.data.labels.length > 50) {
-        chart.data.labels.shift();
-        chart.data.datasets.forEach(dataset => dataset.data.shift());
-    }
-
+    // Mise à jour du graphique avec animation vive
     chart.update('none');
 
+    // Mettre à jour le timestamp
     const timestampElement = document.getElementById('brainwavesTimestamp');
     if (timestampElement) {
         timestampElement.textContent = 'Dernière validation: ' + formatTimestamp(data.timestamp);
     }
 
+    // Animation visuelle pour indiquer la réception de nouvelles données
     flashDataIndicator('brainwaves');
+
+    // Log des données pour debug
+    if (window.AppState.debugMode) {
+        console.log('📊 Ondes cérébrales (μV²/Hz):', {
+            delta: avgData.delta.toFixed(4),
+            theta: avgData.theta.toFixed(4),
+            alpha: avgData.alpha.toFixed(4),
+            beta: avgData.beta.toFixed(4),
+            gamma: avgData.gamma.toFixed(4)
+        });
+    }
 }
 
 /**
@@ -924,13 +1123,192 @@ function updateCircularProgress(type, value, timestamp) {
 }
 
 /**
+ * NOUVELLE FONCTION: Fonction displaySessions optimisée pour les grandes listes
+ */
+function displaySessionsOptimized(sessions) {
+    const sessionsList = document.getElementById('sessionsList');
+    if (!sessionsList) return;
+
+    // Sauvegarder toutes les sessions
+    window.SessionsManager.allSessions = [...sessions];
+    window.SessionsManager.currentPage = 0;
+    window.SessionsManager.visibleSessions = [];
+
+    // Décider si utiliser la virtualisation
+    const useVirtualization = sessions.length > 100;
+    window.SessionsManager.isVirtualizationEnabled = useVirtualization;
+
+    if (sessions.length === 0) {
+        sessionsList.innerHTML = `
+            <div class="sessions-empty">
+                Aucune session validée enregistrée
+                <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">
+                    Connectez votre casque avec détection pour créer une session
+                </div>
+            </div>
+        `;
+        sessionsList.className = 'sessions-empty';
+
+        // Mettre à jour les statistiques
+        updateSessionsStats([]);
+        return;
+    }
+
+    // Vider la liste
+    sessionsList.className = '';
+    sessionsList.innerHTML = '';
+
+    if (useVirtualization) {
+        // Chargement initial avec virtualisation
+        console.log(`📊 Virtualisation activée pour ${sessions.length} sessions`);
+
+        const initialSessions = sessions.slice(0, window.SessionsManager.itemsPerPage);
+        window.SessionsManager.visibleSessions = [...initialSessions];
+
+        // Créer les éléments DOM
+        const fragment = document.createDocumentFragment();
+        initialSessions.forEach((session, index) => {
+            const sessionElement = window.SessionsManager.createSessionElement(session, index);
+            fragment.appendChild(sessionElement);
+        });
+        sessionsList.appendChild(fragment);
+
+        // Ajouter un indicateur de chargement progressif
+        if (window.SessionsManager.hasMoreSessions()) {
+            const loadMoreIndicator = document.createElement('div');
+            loadMoreIndicator.className = 'load-more-indicator';
+            loadMoreIndicator.innerHTML = `
+                <div style="text-align: center; padding: 1rem; color: #8b5cf6; font-size: 0.875rem;">
+                    📄 ${sessions.length - window.SessionsManager.itemsPerPage} sessions supplémentaires disponibles
+                    <br>
+                    <small style="opacity: 0.7;">Faites défiler pour charger automatiquement</small>
+                </div>
+            `;
+            sessionsList.appendChild(loadMoreIndicator);
+        }
+
+        if (window.showToast) {
+            window.showToast(
+                `📊 ${initialSessions.length}/${sessions.length} sessions affichées (chargement progressif activé)`,
+                'info',
+                4000
+            );
+        }
+    } else {
+        // Affichage normal pour les petites listes
+        console.log(`📊 Affichage normal pour ${sessions.length} sessions`);
+
+        const fragment = document.createDocumentFragment();
+        sessions.forEach((session, index) => {
+            const sessionElement = window.SessionsManager.createSessionElement(session, index);
+            fragment.appendChild(sessionElement);
+        });
+        sessionsList.appendChild(fragment);
+
+        if (sessions.length > 0) {
+            if (window.showToast) {
+                window.showToast(
+                    `📁 ${sessions.length} session(s) validée(s) trouvée(s)`,
+                    'info',
+                    2000
+                );
+            }
+        }
+    }
+
+    // Mettre à jour les statistiques
+    updateSessionsStats(sessions);
+
+    // Initialiser les gestionnaires de scroll
+    setTimeout(() => {
+        window.SessionsManager.updateScrollIndicators();
+    }, 100);
+}
+
+/**
+ * NOUVELLE FONCTION: Fonction de recherche/filtrage des sessions
+ */
+function filterSessions(searchTerm) {
+    if (!searchTerm || searchTerm.trim() === '') {
+        // Réafficher toutes les sessions
+        displaySessionsOptimized(window.SessionsManager.allSessions);
+        return;
+    }
+
+    const filtered = window.SessionsManager.allSessions.filter(session =>
+        session.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    displaySessionsOptimized(filtered);
+
+    if (window.showToast) {
+        window.showToast(
+            `🔍 ${filtered.length} session(s) trouvée(s) pour "${searchTerm}"`,
+            'info',
+            3000
+        );
+    }
+}
+
+/**
+ * NOUVELLE FONCTION: Fonction updateSessionsStats avec calculs plus précis
+ */
+function updateSessionsStats(sessions) {
+    const totalSessionsEl = document.getElementById('totalSessions');
+    const totalSizeEl = document.getElementById('totalSize');
+    const sessionsCounterEl = document.getElementById('sessionsCounter');
+
+    if (totalSessionsEl) {
+        totalSessionsEl.textContent = sessions.length;
+    }
+
+    if (sessionsCounterEl) {
+        const displayText = sessions.length === 0
+            ? 'Aucune session'
+            : `${sessions.length} session${sessions.length > 1 ? 's' : ''}`;
+        sessionsCounterEl.textContent = displayText;
+    }
+
+    // Estimation de la taille plus réaliste
+    if (totalSizeEl) {
+        let estimatedSize;
+        if (sessions.length === 0) {
+            estimatedSize = 0;
+        } else if (sessions.length < 10) {
+            estimatedSize = sessions.length * 0.3; // ~300KB par session pour petites listes
+        } else if (sessions.length < 100) {
+            estimatedSize = sessions.length * 0.5; // ~500KB par session
+        } else {
+            estimatedSize = sessions.length * 0.4; // ~400KB par session (compression pour grandes listes)
+        }
+
+        if (estimatedSize < 1) {
+            totalSizeEl.textContent = (estimatedSize * 1000).toFixed(0) + ' KB';
+        } else {
+            totalSizeEl.textContent = estimatedSize.toFixed(1) + ' MB';
+        }
+    }
+
+    // Animation des statistiques
+    [totalSessionsEl, totalSizeEl].forEach(el => {
+        if (el) {
+            el.style.transform = 'scale(1.1)';
+            el.style.transition = 'transform 0.2s ease';
+            setTimeout(() => {
+                el.style.transform = 'scale(1)';
+            }, 200);
+        }
+    });
+}
+
+/**
  * Charge la liste des sessions
  */
 async function loadSessions() {
     try {
         const response = await fetch('/sessions');
         const data = await response.json();
-        displaySessions(data.sessions || []);
+        displaySessionsOptimized(data.sessions || []);
         return Promise.resolve();
     } catch (error) {
         console.error('❌ Erreur chargement sessions:', error);
@@ -943,59 +1321,11 @@ async function loadSessions() {
 }
 
 /**
- * Affiche les sessions avec indication de validation
+ * FONCTION MAINTENUE POUR COMPATIBILITÉ: Affiche les sessions (version simplifiée)
  */
 function displaySessions(sessions) {
-    const sessionsList = document.getElementById('sessionsList');
-    if (!sessionsList) return;
-
-    if (sessions.length === 0) {
-        sessionsList.innerHTML = `
-            <div class="sessions-empty">
-                Aucune session validée enregistrée
-                <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">
-                    Connectez votre casque avec détection pour créer une session
-                </div>
-            </div>
-        `;
-        sessionsList.className = 'sessions-empty';
-        return;
-    }
-
-    sessionsList.className = '';
-    sessionsList.innerHTML = '';
-
-    sessions.forEach((session, index) => {
-        const sessionItem = document.createElement('div');
-        sessionItem.className = 'session-item';
-        sessionItem.style.animationDelay = `${index * 0.1}s`;
-
-        const dateMatch = session.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
-        let displayDate = 'Session';
-        if (dateMatch) {
-            const [, year, month, day, hour, minute, second] = dateMatch;
-            displayDate = `${day}/${month}/${year} ${hour}:${minute}`;
-        }
-
-        sessionItem.innerHTML = `
-            <div class="session-info">
-                <div class="session-name">${session} <span style="color: #8b5cf6;">✓</span></div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
-                    📅 ${displayDate} • Données biologiques validées
-                </div>
-            </div>
-            <div class="session-actions">
-                <button class="btn btn-outline btn-small" onclick="downloadSession('${session}')" title="Télécharger CSV validé">
-                    <span>⬇️</span> CSV
-                </button>
-            </div>
-        `;
-        sessionsList.appendChild(sessionItem);
-    });
-
-    if (sessions.length > 0) {
-        showToast(`📁 ${sessions.length} session(s) validée(s) trouvée(s)`, 'info', 2000);
-    }
+    // Appeler la version optimisée
+    displaySessionsOptimized(sessions);
 }
 
 /**
@@ -1114,6 +1444,19 @@ function checkDeviceStatus() {
 setInterval(checkDeviceStatus, 30000);
 
 /**
+ * Fonction pour activer/désactiver le mode debug
+ */
+function toggleDebugMode() {
+    window.AppState.debugMode = !window.AppState.debugMode;
+    showToast(
+        `🔧 Mode debug ${window.AppState.debugMode ? 'activé' : 'désactivé'}`,
+        'info',
+        2000
+    );
+    console.log(`Debug mode: ${window.AppState.debugMode}`);
+}
+
+/**
  * Fonctions utilitaires
  */
 function calculateAverage(array) {
@@ -1146,29 +1489,44 @@ function showMessage(message, type) {
     showToast(message, type);
 }
 
-// Styles CSS pour les animations
-const detectionStyles = document.createElement('style');
-detectionStyles.textContent = `
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+// Gestionnaire de clavier pour la recherche rapide et raccourcis
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + F pour ouvrir une recherche rapide de sessions
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && window.SessionsManager.allSessions.length > 0) {
+        e.preventDefault();
+
+        const searchTerm = prompt('🔍 Rechercher dans les sessions:', '');
+        if (searchTerm !== null) {
+            filterSessions(searchTerm);
+        }
     }
-    
-    @keyframes fadeOut {
-        from { opacity: 1; }
-        to { opacity: 0; }
+
+    // Ctrl/Cmd + D pour le mode debug
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        toggleDebugMode();
     }
-    
-    #strictModeIndicator {
-        animation: pulse 2s infinite;
+
+    // Raccourcis clavier existants
+    if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+            case 'k':
+                e.preventDefault();
+                if (window.AppState.isConnected) {
+                    disconnectDevice();
+                } else {
+                    connectDevice();
+                }
+                break;
+            case 'r':
+                e.preventDefault();
+                if (window.AppState.isConnected) {
+                    toggleRecording();
+                }
+                break;
+        }
     }
-    
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-    }
-`;
-document.head.appendChild(detectionStyles);
+});
 
 // Gestion des erreurs globales
 window.addEventListener('error', function(event) {
@@ -1191,9 +1549,13 @@ window.toggleRecording = toggleRecording;
 window.downloadData = downloadData;
 window.loadSessions = loadSessions;
 window.displaySessions = displaySessions;
+window.displaySessionsOptimized = displaySessionsOptimized;
 window.updateSystemStatus = updateSystemStatus;
+window.updateSessionsStats = updateSessionsStats;
+window.filterSessions = filterSessions;
 window.showToast = showToast;
 window.startMonitoring = startMonitoring;
 window.stopMonitoring = stopMonitoring;
+window.toggleDebugMode = toggleDebugMode;
 
-console.log('✅ Application Neurosity Monitor chargée avec monitoring automatique');
+console.log('✅ Application Neurosity Monitor chargée complètement avec Sessions Manager optimisé pour milliers de fichiers');

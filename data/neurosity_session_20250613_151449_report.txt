@@ -1,0 +1,38 @@
+=== RAPPORT DE SESSION NEUROSITY ===
+Session: neurosity_session_20250613_151449
+Début: 2025-06-13 15:14:49
+Fin: 2025-06-13 15:14:55
+Durée: 6.5 secondes (0.1 minutes)
+Points de données: 116
+
+CALME (7 mesures):
+  Moyenne: 19.0%
+  Maximum: 33.4%
+  Minimum: 8.2%
+
+CONCENTRATION (7 mesures):
+  Moyenne: 36.0%
+  Maximum: 53.3%
+  Minimum: 15.4%
+
+ONDES CÉRÉBRALES:
+  Delta (102 mesures):
+    Moyenne: 0.124 μV
+    Maximum: 0.140 μV
+    Minimum: 0.105 μV
+  Theta (102 mesures):
+    Moyenne: 0.224 μV
+    Maximum: 0.237 μV
+    Minimum: 0.209 μV
+  Alpha (102 mesures):
+    Moyenne: 0.423 μV
+    Maximum: 0.438 μV
+    Minimum: 0.409 μV
+  Beta (102 mesures):
+    Moyenne: 0.323 μV
+    Maximum: 0.338 μV
+    Minimum: 0.308 μV
+  Gamma (102 mesures):
+    Moyenne: 0.109 μV
+    Maximum: 0.126 μV
+    Minimum: 0.092 μV
