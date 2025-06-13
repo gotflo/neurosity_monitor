@@ -233,12 +233,14 @@ function initializeWebSocket() {
             showToast('🎯 Monitoring démarré ! Données biologiques validées en temps réel', 'success');
             window.AppState.isMonitoring = true;
             updateMonitoringStatus(true);
+            updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, true);
         });
 
         window.AppState.socket.on('monitoring_stopped', function() {
             showToast('⏹️ Monitoring arrêté', 'info');
             window.AppState.isMonitoring = false;
             updateMonitoringStatus(false);
+            updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, false);
         });
 
         // Événements de surveillance de connexion
@@ -268,195 +270,187 @@ function initializeWebSocket() {
 }
 
 /**
- * Connecte le casque avec interface de détection stricte
+ * CORRECTION: Gestion dynamique du bouton de connexion
  */
-async function connectDevice() {
+function updateConnectionButton(connected) {
     const connectBtn = document.getElementById('connectBtn');
+    if (!connectBtn) return;
 
-    console.log('🔗 Tentative de connexion avec détection du crown...');
+    if (connected) {
+        connectBtn.innerHTML = '<span>🔌</span><span class="btn-text">Déconnecter</span>';
+        connectBtn.className = 'btn btn-danger';
+        connectBtn.onclick = disconnectDevice;
+        connectBtn.title = 'Déconnecter le casque Neurosity';
+    } else {
+        connectBtn.innerHTML = '<span>🔗</span><span class="btn-text">Connecter</span>';
+        connectBtn.className = 'btn btn-primary';
+        connectBtn.onclick = connectDevice;
+        connectBtn.title = 'Connecter le casque Neurosity (Ctrl+K)';
+    }
+}
 
-    // Interface de détection en cours
-    showDetectionProgress();
+/**
+ * CORRECTION: Fonction de déconnexion mise à jour
+ */
+function disconnectDevice() {
+    if (!confirm('Êtes-vous sûr de vouloir déconnecter le casque ?')) {
+        return;
+    }
 
-    try {
+    const connectBtn = document.getElementById('connectBtn');
+    if (connectBtn) {
         connectBtn.disabled = true;
-        connectBtn.innerHTML = '<span>🔬</span><span class="btn-text"> Détection...</span>';
-        window.AppState.detectionInProgress = true;
+        connectBtn.innerHTML = '<span>⏳</span><span class="btn-text">Déconnexion...</span>';
+    }
 
-        showToast('🔬 Démarrage de la détection du casque Neurosity Crown...', 'detection', 0);
+    fetch('/disconnect', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('🔌 Casque déconnecté', 'success');
+            updateConnectionButton(false);
 
-        const response = await fetch('/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+            // Arrêter le monitoring s'il était actif
+            if (window.AppState.isMonitoring) {
+                stopMonitoring();
+            }
 
-        const result = await response.json();
+            // Mettre à jour tous les statuts
+            window.AppState.isConnected = false;
+            window.AppState.isMonitoring = false;
+            updateConnectionStatus(false, false, false);
+        } else {
+            showToast('❌ Erreur déconnexion: ' + (data.error || 'Erreur inconnue'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur déconnexion:', error);
+        showToast('❌ Erreur de déconnexion', 'error');
+    })
+    .finally(() => {
+        if (connectBtn) {
+            connectBtn.disabled = false;
+        }
+    });
+}
 
-        if (result.success) {
+/**
+ * CORRECTION: Connecte le casque avec interface de détection stricte
+ */
+function connectDevice() {
+    const connectBtn = document.getElementById('connectBtn');
+    if (connectBtn) {
+        connectBtn.disabled = true;
+        connectBtn.innerHTML = '<span>⏳</span><span class="btn-text">Connexion...</span>';
+    }
+
+    showToast('🔄 Connexion en cours...', 'info', 3000);
+
+    fetch('/connect', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('✅ ' + (data.message || 'Casque connecté avec succès !'), 'success');
+            updateConnectionButton(true);
+
+            // Mettre à jour l'état global
             window.AppState.isConnected = true;
-            window.AppState.deviceStatus = result.device_status || {};
+            window.AppState.deviceStatus = data.device_status || {};
 
-            console.log('✅ Casque connecté avec validation  !', result);
+            updateConnectionStatus(true, false, false);
+            updateDeviceStatus(data.device_status || {});
 
-            // Message de succès détaillé
-            const validationInfo = result.device_status?.validation || 'Données biologiques confirmées';
-            const dataPoints = result.device_status?.data_points || 'N/A';
-
-            showToast(`✅ Casque Neurosity Crown validé ! ${validationInfo} (${dataPoints} points analysés)`, 'success', 6000);
-
-            updateDeviceStatus(window.AppState.deviceStatus);
-            hideDetectionProgress();
-
-            // Démarrer automatiquement le monitoring
+            // CORRECTION: Démarrer automatiquement le monitoring
             setTimeout(() => {
+                console.log('🎯 Démarrage automatique du monitoring...');
                 startMonitoring();
             }, 1000);
+
         } else {
-            console.error('❌ Échec de détection :', result);
-
-            // Messages d'erreur spécifiques
-            const errorMsg = result.error || 'Erreur de connexion inconnue';
-            const helpMsg = result.help || '';
-
-            hideDetectionProgress();
-
-            if (errorMsg.includes('NON DÉTECTÉ')) {
-                showToast(`❌ Casque non détecté ! ${errorMsg}`, 'error', 10000);
-                if (helpMsg) {
-                    setTimeout(() => {
-                        showToast(`💡 ${helpMsg}`, 'info', 8000);
-                    }, 2000);
-                }
-            } else {
-                showToast(`❌ ${errorMsg}`, 'error', 6000);
-            }
+            showToast('❌ ' + (data.error || 'Erreur de connexion'), 'error', 8000);
+            updateConnectionButton(false);
+            window.AppState.isConnected = false;
+            updateConnectionStatus(false, false, false);
         }
+    })
+    .catch(error => {
+        console.error('Erreur connexion:', error);
+        showToast('❌ Erreur de connexion réseau', 'error');
+        updateConnectionButton(false);
+        window.AppState.isConnected = false;
+        updateConnectionStatus(false, false, false);
+    })
+    .finally(() => {
+        if (connectBtn) {
+            connectBtn.disabled = false;
+        }
+    });
+}
 
+/**
+ * CORRECTION: Démarre le monitoring
+ */
+function startMonitoring() {
+    if (!window.AppState.socket) {
+        console.error('❌ Socket non disponible pour le monitoring');
+        showToast('❌ Erreur WebSocket - impossible de démarrer le monitoring', 'error');
+        return;
+    }
+
+    if (!window.AppState.isConnected) {
+        console.warn('⚠️ Tentative de démarrage monitoring sans connexion');
+        showToast('⚠️ Connectez d\'abord votre casque Neurosity Crown', 'warning');
+        return;
+    }
+
+    if (window.AppState.isMonitoring) {
+        console.log('🎯 Monitoring déjà actif');
+        return;
+    }
+
+    console.log('🎯 Envoi commande start_monitoring...');
+    showToast('🎯 Démarrage du monitoring...', 'info', 2000);
+
+    try {
+        window.AppState.socket.emit('start_monitoring');
     } catch (error) {
-        console.error('❌ Erreur de connexion:', error);
-        showToast('❌ Erreur de connexion : ' + error.message, 'error');
-        hideDetectionProgress();
-    } finally {
-        window.AppState.detectionInProgress = false;
-        updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, window.AppState.isMonitoring);
+        console.error('❌ Erreur émission start_monitoring:', error);
+        showToast('❌ Erreur de démarrage du monitoring', 'error');
     }
 }
 
 /**
- * Affiche l'interface de progression de détection
+ * CORRECTION: Arrête le monitoring
  */
-function showDetectionProgress() {
-    // Supprimer l'interface précédente si elle existe
-    hideDetectionProgress();
-
-    const progressOverlay = document.createElement('div');
-    progressOverlay.id = 'detectionProgress';
-    progressOverlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(5px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        animation: fadeIn 0.3s ease;
-    `;
-
-    progressOverlay.innerHTML = `
-        <div style="
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            padding: 40px;
-            border-radius: 20px;
-            color: white;
-            text-align: center;
-            max-width: 500px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        ">
-            <div style="font-size: 3rem; margin-bottom: 20px;">🔬</div>
-            <h3 style="margin: 0 0 10px 0; font-size: 1.5rem;">Détection en Cours</h3>
-            <p style="margin: 0 0 20px 0; opacity: 0.9; line-height: 1.5;">
-                Analyse des données biologiques de votre casque Neurosity Crown...<br>
-                <strong>Veuillez patienter jusqu'à 20 secondes</strong>
-            </p>
-            <div style="
-                width: 100%;
-                height: 6px;
-                background: rgba(255,255,255,0.2);
-                border-radius: 3px;
-                overflow: hidden;
-                margin-bottom: 15px;
-            ">
-                <div id="detectionProgressBar" style="
-                    width: 0%;
-                    height: 100%;
-                    background: linear-gradient(90deg, #ffffff, #f1f5f9);
-                    border-radius: 3px;
-                    transition: width 0.3s ease;
-                "></div>
-            </div>
-            <div id="detectionStatus" style="font-size: 0.9rem; opacity: 0.8;">
-                Initialisation de la détection...
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(progressOverlay);
-
-    // Animation de la barre de progression
-    animateDetectionProgress();
-}
-
-/**
- * Anime la barre de progression de détection
- */
-function animateDetectionProgress() {
-    const progressBar = document.getElementById('detectionProgressBar');
-    const statusText = document.getElementById('detectionStatus');
-
-    if (!progressBar || !statusText) return;
-
-    const steps = [
-        { progress: 10, status: 'Connexion au SDK Neurosity...', time: 1000 },
-        { progress: 25, status: 'Authentification en cours...', time: 2000 },
-        { progress: 40, status: 'Recherche du casque...', time: 3000 },
-        { progress: 55, status: 'Collecte des données biologiques...', time: 8000 },
-        { progress: 75, status: 'Validation des patterns naturels...', time: 4000 },
-        { progress: 90, status: 'Analyse de cohérence temporelle...', time: 2000 },
-        { progress: 100, status: 'Validation finale...', time: 1000 }
-    ];
-
-    let currentStep = 0;
-
-    function updateStep() {
-        if (currentStep < steps.length && document.getElementById('detectionProgress')) {
-            const step = steps[currentStep];
-            progressBar.style.width = step.progress + '%';
-            statusText.textContent = step.status;
-            currentStep++;
-
-            setTimeout(updateStep, step.time);
-        }
+function stopMonitoring() {
+    if (!window.AppState.socket) {
+        console.error('❌ Socket non disponible pour arrêter le monitoring');
+        return;
     }
 
-    updateStep();
-}
+    if (!window.AppState.isMonitoring) {
+        console.log('⏹️ Monitoring déjà arrêté');
+        return;
+    }
 
-/**
- * Cache l'interface de progression de détection
- */
-function hideDetectionProgress() {
-    const progressOverlay = document.getElementById('detectionProgress');
-    if (progressOverlay) {
-        progressOverlay.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => {
-            if (progressOverlay.parentNode) {
-                progressOverlay.parentNode.removeChild(progressOverlay);
-            }
-        }, 300);
+    console.log('⏹️ Envoi commande stop_monitoring...');
+    showToast('⏹️ Arrêt du monitoring...', 'info', 2000);
+
+    try {
+        window.AppState.socket.emit('stop_monitoring');
+    } catch (error) {
+        console.error('❌ Erreur émission stop_monitoring:', error);
+        showToast('❌ Erreur d\'arrêt du monitoring', 'error');
     }
 }
 
@@ -478,7 +472,7 @@ function updateDeviceStatus(deviceStatus) {
             // Information enrichie avec validation
             let statusText = 'Crown';
 
-            if (deviceStatus.validation === 'biological_data_confirmed') {
+            if (deviceStatus.validation === 'biological_data_confirmed_v2') {
                 statusText += ' ✓';
             }
 
@@ -539,7 +533,7 @@ function updateMonitoringStatus(monitoring) {
 }
 
 /**
- * Initialise les graphiques (identique)
+ * Initialise les graphiques
  */
 function initializeCharts() {
     console.log('📊 Initialisation des graphiques...');
@@ -696,17 +690,7 @@ function initializeCharts() {
 }
 
 /**
- * Démarre le monitoring automatiquement
- */
-function startMonitoring() {
-    if (window.AppState.socket && window.AppState.isConnected) {
-        console.log('🎯 Démarrage automatique du monitoring...');
-        window.AppState.socket.emit('start_monitoring');
-    }
-}
-
-/**
- * Gère l'enregistrement (identique)
+ * Gère l'enregistrement
  */
 async function toggleRecording() {
     if (!window.AppState.isConnected) {
@@ -720,9 +704,11 @@ async function toggleRecording() {
 
         showToast(`🎬 ${actionText} de l'enregistrement...`, 'info');
 
+        // CORRECTION: Envoyer un JSON valide même si vide
         const response = await fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}) // NOUVEAU: Corps JSON vide mais valide
         });
 
         const result = await response.json();
@@ -736,6 +722,8 @@ async function toggleRecording() {
                 showToast('⏹️ Enregistrement arrêté. Fichier CSV avec données validées disponible', 'success');
                 setTimeout(loadSessions, 1000);
             }
+        } else {
+            showToast('❌ Erreur enregistrement: ' + (result.error || 'Erreur inconnue'), 'error');
         }
 
         updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, window.AppState.isMonitoring);
@@ -747,7 +735,7 @@ async function toggleRecording() {
 }
 
 /**
- * Télécharge les données (identique)
+ * Télécharge les données
  */
 async function downloadData() {
     try {
@@ -776,36 +764,34 @@ async function downloadData() {
 }
 
 /**
- * Met à jour l'interface utilisateur
+ * CORRECTION: Met à jour l'interface utilisateur
  */
 function updateConnectionStatus(connected, recording, monitoring) {
     window.AppState.isConnected = connected;
     window.AppState.isRecording = recording;
     window.AppState.isMonitoring = monitoring;
 
-    const connectBtn = document.getElementById('connectBtn');
     const recordBtn = document.getElementById('recordBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const connectionStatus = document.getElementById('connectionStatus');
     const connectionText = document.getElementById('connectionText');
     const recordingStatus = document.getElementById('recordingStatus');
 
-    if (connectBtn) {
+    // CORRECTION: Mettre à jour le bouton de connexion séparément
+    updateConnectionButton(connected);
+
+    // Statut de connexion
+    if (connectionStatus && connectionText) {
         if (connected) {
             connectionStatus.className = 'status-dot status-connected';
             connectionText.textContent = 'Connecté (Validé)';
-            connectBtn.innerHTML = '<span>✅</span><span class="btn-text"> Validé</span>';
-            connectBtn.disabled = true;
-            connectBtn.className = 'btn btn-success';
         } else {
             connectionStatus.className = 'status-dot status-disconnected';
             connectionText.textContent = 'Déconnecté';
-            connectBtn.innerHTML = '<span>🔬</span><span class="btn-text"> Connecter</span>';
-            connectBtn.disabled = window.AppState.detectionInProgress;
-            connectBtn.className = 'btn btn-primary';
         }
     }
 
+    // Bouton d'enregistrement
     if (recordBtn) {
         recordBtn.disabled = !connected;
 
@@ -818,10 +804,12 @@ function updateConnectionStatus(connected, recording, monitoring) {
         }
     }
 
+    // Bouton de téléchargement
     if (downloadBtn) {
         downloadBtn.disabled = !connected;
     }
 
+    // Statut d'enregistrement
     if (recordingStatus) {
         if (recording) {
             recordingStatus.style.display = 'flex';
@@ -829,10 +817,12 @@ function updateConnectionStatus(connected, recording, monitoring) {
             recordingStatus.style.display = 'none';
         }
     }
+
+    console.log(`🔄 Statut mis à jour: Connected=${connected}, Recording=${recording}, Monitoring=${monitoring}`);
 }
 
 /**
- * Gestionnaires des données en temps réel (identiques)
+ * Gestionnaires des données en temps réel
  */
 function handleCalmData(data) {
     if (!window.AppState.isConnected) return;
@@ -1056,7 +1046,7 @@ function updateSystemStatus(connected, monitoring, deviceStatus) {
             let signalBg = 'rgba(239, 68, 68, 0.1)';
             let signalEmoji = '🔴';
 
-            if (validation === 'biological_data_confirmed') {
+            if (validation === 'biological_data_confirmed_v2') {
                 signalText = 'Données Biologiques ✓';
                 signalColor = '#8b5cf6';
                 signalBg = 'rgba(139, 92, 246, 0.1)';
@@ -1196,11 +1186,14 @@ window.addEventListener('beforeunload', function(event) {
 
 // Exporter les fonctions principales
 window.connectDevice = connectDevice;
+window.disconnectDevice = disconnectDevice;
 window.toggleRecording = toggleRecording;
 window.downloadData = downloadData;
 window.loadSessions = loadSessions;
 window.displaySessions = displaySessions;
 window.updateSystemStatus = updateSystemStatus;
 window.showToast = showToast;
+window.startMonitoring = startMonitoring;
+window.stopMonitoring = stopMonitoring;
 
-console.log('✅ Application Neurosity Monitor');
+console.log('✅ Application Neurosity Monitor chargée avec monitoring automatique');

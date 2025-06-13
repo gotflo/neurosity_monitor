@@ -15,7 +15,7 @@ class DataManager:
         self.csv_file = None
         self.csv_writer = None
         self.session_data = []
-        self.session_start_time = None  # CORRECTION: Ajout de l'initialisation
+        self.session_start_time = None
         
         # Créer le dossier de données s'il n'existe pas
         os.makedirs(data_directory, exist_ok=True)
@@ -37,10 +37,8 @@ class DataManager:
         self.csv_file = open(csv_filename, 'w', newline='', encoding='utf-8')
         self.csv_writer = csv.writer(self.csv_file, delimiter=';')
         
-        # Écrire les en-têtes
         headers = [
             'timestamp',
-            'unix_timestamp',
             'session_duration',
             'calm_probability',
             'calm_percentage',
@@ -72,11 +70,7 @@ class DataManager:
             'gamma_max',
             'gamma_min',
             'gamma_std',
-            'gamma_raw',
-            'device_id',
-            'session_name',
-            'data_quality',
-            'signal_strength'
+            'gamma_raw'
         ]
         
         self.csv_writer.writerow(headers)
@@ -97,18 +91,13 @@ class DataManager:
             self.session_start_time = datetime.now()
         
         timestamp = datetime.now()
-        unix_timestamp = timestamp.timestamp()
         session_duration = (timestamp - self.session_start_time).total_seconds()
         
-        # Initialiser la ligne avec les données de base
+        # CORRECTION: Initialiser la ligne avec les données de base simplifiées
         row_data = {
             'timestamp': timestamp.isoformat(),
-            'unix_timestamp': unix_timestamp,
             'session_duration': session_duration,
-            'session_name': self.current_session,
-            'device_id': metadata.get('device_id', '') if metadata else '',
-            'data_quality': metadata.get('quality', '') if metadata else '',
-            'signal_strength': metadata.get('signal_strength', '') if metadata else ''
+            'device_id': metadata.get('device_id', '') if metadata else ''
         }
         
         # Traiter selon le type de données
@@ -216,15 +205,13 @@ class DataManager:
                 })
     
     def _write_csv_row(self, row_data: Dict):
-        """Écrit une ligne dans le fichier CSV"""
-        # CORRECTION: Vérifier que le writer existe
+        """CORRECTION: Écrit une ligne dans le CSV avec colonnes simplifiées"""
         if not self.csv_writer:
             return
         
-        # Ordre des colonnes selon les headers
+        # CORRECTION: Ordre des colonnes selon les nouveaux headers simplifiés
         ordered_values = [
             row_data.get('timestamp', ''),
-            row_data.get('unix_timestamp', ''),
             row_data.get('session_duration', ''),
             row_data.get('calm_probability', ''),
             row_data.get('calm_percentage', ''),
@@ -256,11 +243,7 @@ class DataManager:
             row_data.get('gamma_max', ''),
             row_data.get('gamma_min', ''),
             row_data.get('gamma_std', ''),
-            row_data.get('gamma_raw', ''),
-            row_data.get('device_id', ''),
-            row_data.get('session_name', ''),
-            row_data.get('data_quality', ''),
-            row_data.get('signal_strength', '')
+            row_data.get('gamma_raw', '')
         ]
         
         try:

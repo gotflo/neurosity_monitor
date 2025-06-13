@@ -28,12 +28,12 @@
                 <span>🔗</span>
                 <span class="btn-text">Connecter</span>
             </button>
-            
+
             <button class="btn btn-success" id="recordBtn" onclick="toggleRecording()" disabled title="Démarrer/Arrêter l'enregistrement (Ctrl+R)">
                 <span>⏺️</span>
                 <span class="btn-text">Enregistrer</span>
             </button>
-            
+
             <button class="btn btn-outline" id="downloadBtn" onclick="downloadData()" disabled title="Télécharger la dernière session">
                 <span>⬇️</span>
                 <span class="btn-text">Télécharger</span>
@@ -64,7 +64,7 @@ function handleNavbarResize() {
     const navControls = document.querySelector('.nav-controls');
     const isMobile = window.innerWidth < 768;
     const isSmallMobile = window.innerWidth < 480;
-    
+
     if (navControls) {
         if (isSmallMobile) {
             // Cacher le texte des boutons sur très petits écrans
@@ -88,29 +88,29 @@ window.addEventListener('orientationchange', handleNavbarResize);
 document.addEventListener('DOMContentLoaded', function() {
     // Gestion responsive initiale
     handleNavbarResize();
-    
+
     // Animation de chargement des éléments de la navbar
     const navElements = document.querySelectorAll('.nav-controls > *');
     navElements.forEach((element, index) => {
         element.style.opacity = '0';
         element.style.transform = 'translateY(-10px)';
-        
+
         setTimeout(() => {
             element.style.transition = 'all 0.3s ease';
             element.style.opacity = '1';
             element.style.transform = 'translateY(0)';
         }, 100 * (index + 1));
     });
-    
+
     // Vérifier que les fonctions globales sont disponibles
     if (typeof window.connectDevice !== 'function') {
         console.warn('⚠️ Fonction connectDevice non disponible depuis app.js');
     }
-    
+
     if (typeof window.toggleRecording !== 'function') {
         console.warn('⚠️ Fonction toggleRecording non disponible depuis app.js');
     }
-    
+
     if (typeof window.downloadData !== 'function') {
         console.warn('⚠️ Fonction downloadData non disponible depuis app.js');
     }
@@ -135,12 +135,12 @@ document.addEventListener('DOMContentLoaded', function() {
     .nav-controls {
         gap: 0.5rem;
     }
-    
+
     .status-indicator {
         padding: 0.5rem 0.75rem;
         font-size: 0.75rem;
     }
-    
+
     .btn {
         padding: 0.5rem 1rem;
         font-size: 0.75rem;
@@ -151,11 +151,11 @@ document.addEventListener('DOMContentLoaded', function() {
     .logo {
         font-size: 1.2rem;
     }
-    
+
     .btn span:first-child {
         font-size: 1rem;
     }
-    
+
     .status-indicator span {
         max-width: 80px;
         overflow: hidden;

@@ -19,11 +19,11 @@
         <!-- Card Sessions Enregistrées avec design spécialisé -->
         <div class="card sessions-card">
             <h3 class="card-title">Sessions Enregistrées</h3>
-            
+
             <div id="sessionsList" class="sessions-empty">
                 Connectez votre casque pour voir les sessions
             </div>
-            
+
             <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top: 1.5rem; width: 100%;">
                 <span>🔄</span> Actualiser
             </button>
@@ -32,7 +32,7 @@
         <!-- Card Statut Système avec design moderne -->
         <div class="card status-card">
             <h3 class="card-title">Statut du Système</h3>
-            
+
             <div class="status-grid">
                 <div class="status-item">
                     <div class="status-label">
@@ -41,7 +41,7 @@
                     </div>
                     <div class="status-value" id="systemConnectionStatus">❌ Déconnecté</div>
                 </div>
-                
+
                 <div class="status-item">
                     <div class="status-label">
                         <span>🎯</span>
@@ -49,7 +49,7 @@
                     </div>
                     <div class="status-value" id="systemMonitoringStatus">⏹️ Arrêté</div>
                 </div>
-                
+
                 <div class="status-item">
                     <div class="status-label">
                         <span>📡</span>
@@ -57,7 +57,7 @@
                     </div>
                     <div class="status-value" id="systemSignalQuality">-- --</div>
                 </div>
-                
+
                 <div class="status-item">
                     <div class="status-label">
                         <span>🔋</span>
@@ -79,16 +79,16 @@
 function refreshSessions() {
     const refreshBtn = document.querySelector('button[onclick="refreshSessions()"]');
     if (!refreshBtn) return;
-    
+
     const originalText = refreshBtn.innerHTML;
-    
+
     refreshBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">🔄</span> Actualisation...';
     refreshBtn.disabled = true;
-    
+
     if (window.showToast) {
         showToast('🔄 Actualisation des sessions...', 'info', 2000);
     }
-    
+
     // Appeler la fonction globale loadSessions de app.js
     if (window.loadSessions) {
         window.loadSessions().finally(() => {
@@ -112,17 +112,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof window.updateSystemStatus !== 'function') {
         console.warn('⚠️ Fonction updateSystemStatus non disponible depuis app.js');
     }
-    
+
     if (typeof window.displaySessions !== 'function') {
         console.warn('⚠️ Fonction displaySessions non disponible depuis app.js');
     }
-    
+
     // Animation d'entrée pour les éléments de cette page
     const cards = document.querySelectorAll('.dashboard-grid .card');
     cards.forEach((card, index) => {
         card.style.opacity = '0';
         card.style.transform = 'translateY(20px)';
-        
+
         setTimeout(() => {
             card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
             card.style.opacity = '1';
