@@ -1,0 +1,25 @@
+# Dépendances pour l'application Neurosity Monitor
+
+# Framework web
+Flask~=3.1.1
+Flask-SocketIO~=5.5.1
+
+# SDK Neurosity
+neurosity~=2.2.0
+
+# Gestion des variables d'environnement
+python-dotenv~=1.1.0
+
+# WebSocket et communication temps réel
+python-socketio
+
+# Gestion des données et CSV
+pandas~=2.3.0
+
+# Utilitaires
+python-dateutil
+pytz
+
+# Développement et débogage (optionnel)
+# pytest
+# pytest-flask

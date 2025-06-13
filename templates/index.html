@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Neurosity Crown Monitor{% endblock %}
+
+{% block content %}
+<!-- Container principal -->
+<div class="container">
+    <!-- Messages système -->
+    <div id="messages"></div>
+
+    <!-- Métriques principales -->
+    {% include 'components/metrics.html' %}
+
+    <!-- Graphiques des ondes cérébrales -->
+    {% include 'components/charts.html' %}
+
+    <!-- CORRECTION: Gestion des sessions avec design moderne -->
+    <div class="dashboard-grid">
+        <!-- Card Sessions Enregistrées avec design spécialisé -->
+        <div class="card sessions-card">
+            <h3 class="card-title">Sessions Enregistrées</h3>
+            
+            <div id="sessionsList" class="sessions-empty">
+                Connectez votre casque pour voir les sessions
+            </div>
+            
+            <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top: 1.5rem; width: 100%;">
+                <span>🔄</span> Actualiser
+            </button>
+        </div>
+
+        <!-- Card Statut Système avec design moderne -->
+        <div class="card status-card">
+            <h3 class="card-title">Statut du Système</h3>
+            
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">
+                        <span>🔗</span>
+                        État de la connexion
+                    </div>
+                    <div class="status-value" id="systemConnectionStatus">❌ Déconnecté</div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label">
+                        <span>🎯</span>
+                        Monitoring actif
+                    </div>
+                    <div class="status-value" id="systemMonitoringStatus">⏹️ Arrêté</div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label">
+                        <span>📡</span>
+                        Qualité du signal
+                    </div>
+                    <div class="status-value" id="systemSignalQuality">-- --</div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-label">
+                        <span>🔋</span>
+                        Batterie
+                    </div>
+                    <div class="status-value" id="systemBattery">-- --</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CORRECTION: JavaScript pour la gestion des sessions - Suppression des redondances -->
+<script>
+// CORRECTION: Suppression des fonctions redéfinies (displaySessions, updateSystemStatus)
+// Ces fonctions sont maintenant uniquement dans app.js
+
+// AMÉLIORATION: Fonction d'actualisation spécifique à cette page
+function refreshSessions() {
+    const refreshBtn = document.querySelector('button[onclick="refreshSessions()"]');
+    if (!refreshBtn) return;
+    
+    const originalText = refreshBtn.innerHTML;
+    
+    refreshBtn.innerHTML = '<span style="animation: spin 1s linear infinite;">🔄</span> Actualisation...';
+    refreshBtn.disabled = true;
+    
+    if (window.showToast) {
+        showToast('🔄 Actualisation des sessions...', 'info', 2000);
+    }
+    
+    // Appeler la fonction globale loadSessions de app.js
+    if (window.loadSessions) {
+        window.loadSessions().finally(() => {
+            setTimeout(() => {
+                refreshBtn.innerHTML = originalText;
+                refreshBtn.disabled = false;
+            }, 1000);
+        });
+    } else {
+        // Fallback si loadSessions n'est pas disponible
+        setTimeout(() => {
+            refreshBtn.innerHTML = originalText;
+            refreshBtn.disabled = false;
+        }, 1000);
+    }
+}
+
+// CORRECTION: Initialisation spécifique à cette page
+document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier que les fonctions globales sont disponibles
+    if (typeof window.updateSystemStatus !== 'function') {
+        console.warn('⚠️ Fonction updateSystemStatus non disponible depuis app.js');
+    }
+    
+    if (typeof window.displaySessions !== 'function') {
+        console.warn('⚠️ Fonction displaySessions non disponible depuis app.js');
+    }
+    
+    // Animation d'entrée pour les éléments de cette page
+    const cards = document.querySelectorAll('.dashboard-grid .card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, 200 * (index + 1));
+    });
+});
+
+// CSS pour l'animation de rotation (uniquement si nécessaire)
+if (!document.querySelector('#spin-animation-style')) {
+    const style = document.createElement('style');
+    style.id = 'spin-animation-style';
+    style.textContent = `
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+</script>
+{% endblock %}

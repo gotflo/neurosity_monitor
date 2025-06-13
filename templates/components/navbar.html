@@ -1,0 +1,225 @@
+<nav class="navbar">
+    <div class="nav-container">
+        <div class="logo">
+            🧠 Neurosity Monitor
+        </div>
+        
+        <div class="nav-controls">
+            <!-- Statut de connexion principal -->
+            <div class="status-indicator">
+                <div class="status-dot status-disconnected" id="connectionStatus"></div>
+                <span id="connectionText">Déconnecté</span>
+            </div>
+            
+            <!-- Statut du dispositif (caché par défaut) -->
+            <div class="status-indicator" id="deviceStatusIndicator" style="display: none;">
+                <div class="status-dot status-disconnected" id="deviceStatusDot"></div>
+                <span id="deviceStatusText">Dispositif</span>
+            </div>
+            
+            <!-- Statut d'enregistrement (caché par défaut) -->
+            <div class="status-indicator recording-active" id="recordingStatus" style="display: none;">
+                <div class="status-dot status-recording"></div>
+                <span>🔴 Enregistrement...</span>
+            </div>
+            
+            <!-- Boutons de contrôle -->
+            <button class="btn btn-primary" id="connectBtn" onclick="connectDevice()" title="Connecter le casque Neurosity (Ctrl+K)">
+                <span>🔗</span>
+                <span class="btn-text">Connecter</span>
+            </button>
+            
+            <button class="btn btn-success" id="recordBtn" onclick="toggleRecording()" disabled title="Démarrer/Arrêter l'enregistrement (Ctrl+R)">
+                <span>⏺️</span>
+                <span class="btn-text">Enregistrer</span>
+            </button>
+            
+            <button class="btn btn-outline" id="downloadBtn" onclick="downloadData()" disabled title="Télécharger la dernière session">
+                <span>⬇️</span>
+                <span class="btn-text">Télécharger</span>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<!-- CORRECTION: JavaScript pour la navbar - Suppression des redondances -->
+<script>
+// CORRECTION: Suppression de toutes les fonctions redéfinies
+// Les fonctions updateNavbarStatus, updateConnectionIndicator, etc.
+// sont maintenant uniquement dans app.js
+
+// Variables globales pour le statut de la navbar (gardées pour compatibilité)
+window.NavbarState = {
+    connected: false,
+    recording: false,
+    monitoring: false,
+    deviceOnline: false
+};
+
+/**
+ * CORRECTION: Fonction simplifiée pour la gestion responsive
+ * (ne fait que le responsive, pas la gestion d'état)
+ */
+function handleNavbarResize() {
+    const navControls = document.querySelector('.nav-controls');
+    const isMobile = window.innerWidth < 768;
+    const isSmallMobile = window.innerWidth < 480;
+    
+    if (navControls) {
+        if (isSmallMobile) {
+            // Cacher le texte des boutons sur très petits écrans
+            document.querySelectorAll('.btn-text').forEach(text => {
+                text.style.display = 'none';
+            });
+        } else {
+            // Afficher le texte des boutons
+            document.querySelectorAll('.btn-text').forEach(text => {
+                text.style.display = 'inline';
+            });
+        }
+    }
+}
+
+// Écouteurs d'événements pour la navbar (uniquement responsive)
+window.addEventListener('resize', handleNavbarResize);
+window.addEventListener('orientationchange', handleNavbarResize);
+
+// CORRECTION: Animation de chargement simplifiée
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion responsive initiale
+    handleNavbarResize();
+    
+    // Animation de chargement des éléments de la navbar
+    const navElements = document.querySelectorAll('.nav-controls > *');
+    navElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+            element.style.transition = 'all 0.3s ease';
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 100 * (index + 1));
+    });
+    
+    // Vérifier que les fonctions globales sont disponibles
+    if (typeof window.connectDevice !== 'function') {
+        console.warn('⚠️ Fonction connectDevice non disponible depuis app.js');
+    }
+    
+    if (typeof window.toggleRecording !== 'function') {
+        console.warn('⚠️ Fonction toggleRecording non disponible depuis app.js');
+    }
+    
+    if (typeof window.downloadData !== 'function') {
+        console.warn('⚠️ Fonction downloadData non disponible depuis app.js');
+    }
+});
+</script>
+
+<!-- Styles spécifiques pour la navbar -->
+<style>
+/* Animation de changement d'état */
+.navbar.state-change {
+    animation: navbarPulse 0.5s ease-out;
+}
+
+@keyframes navbarPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.01); }
+    100% { transform: scale(1); }
+}
+
+/* Responsive amélioré */
+@media (max-width: 600px) {
+    .nav-controls {
+        gap: 0.5rem;
+    }
+    
+    .status-indicator {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo {
+        font-size: 1.2rem;
+    }
+    
+    .btn span:first-child {
+        font-size: 1rem;
+    }
+    
+    .status-indicator span {
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* États actifs */
+.recording-active {
+    animation: recordingPulse 2s infinite;
+}
+
+@keyframes recordingPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+    }
+}
+
+.connected-active .status-dot {
+    animation: connectedGlow 2s infinite;
+}
+
+@keyframes connectedGlow {
+    0%, 100% {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 20px rgba(16, 185, 129, 0.6);
+    }
+}
+
+/* Focus et accessibilité */
+.btn:focus,
+.status-indicator:focus {
+    outline: 2px solid rgba(99, 102, 241, 0.5);
+    outline-offset: 2px;
+}
+
+/* Bouton en cours de chargement */
+.btn.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>

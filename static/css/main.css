@@ -1,0 +1,487 @@
+/* ===============================================
+   STYLES PRINCIPAUX - NEUROSITY MONITOR CORRIGÉ
+   =============================================== */
+
+/* Reset et base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+    min-height: 100vh;
+    color: #334155;
+    line-height: 1.6;
+}
+
+/* Container principal */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* CORRECTION: Grilles de layout redessinées */
+.metrics-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    width: 100%;
+}
+
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    width: 100%;
+}
+
+/* CORRECTION: Dashboard grid fixé */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    width: 100%;
+    align-items: start; /* IMPORTANT: évite les chevauchements */
+}
+
+/* Cards de base - Design moderne et soft */
+.card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    min-height: fit-content; /* CORRECTION: hauteur adaptative */
+}
+
+/* Effet de lueur moderne */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(99, 102, 241, 0.3),
+        transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.card:hover::before {
+    opacity: 1;
+}
+
+.card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.12),
+        0 8px 24px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.card-title::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 2px;
+}
+
+/* CORRECTION: Chart card spécifique */
+.chart-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    width: 100%; /* CORRECTION: largeur complète */
+}
+
+.chart-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.1),
+        0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* CORRECTION: Conteneur de graphiques */
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin-top: 1rem;
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(248, 250, 252, 0.5);
+}
+
+/* AMÉLIORATION: Cards spécialisées */
+
+/* Card Sessions avec design attrayant */
+.sessions-card {
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.95) 0%,
+        rgba(248, 250, 252, 0.9) 100%);
+    position: relative;
+}
+
+.sessions-card::after {
+    content: '📊';
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    opacity: 0.3;
+}
+
+/* Card Statut Système moderne */
+.status-card {
+    background: linear-gradient(135deg,
+        rgba(240, 253, 244, 0.95) 0%,
+        rgba(255, 255, 255, 0.9) 100%);
+    border-left: 4px solid #10b981;
+    position: relative;
+}
+
+.status-card::after {
+    content: '⚡';
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    opacity: 0.3;
+}
+
+/* AMÉLIORATION: Statut système redesigné */
+.status-grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.5);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.status-item:hover {
+    background: rgba(255, 255, 255, 0.8);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.status-label {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-value {
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(241, 245, 249, 0.8);
+    border-radius: 8px;
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    transition: all 0.3s ease; /* CORRECTION: Ajout transition pour animations */
+}
+
+/* AMÉLIORATION: Sessions list moderne */
+.sessions-empty {
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+    padding: 2rem;
+    background: rgba(248, 250, 252, 0.5);
+    border-radius: 12px;
+    border: 2px dashed rgba(226, 232, 240, 0.8);
+    position: relative;
+}
+
+.sessions-empty::before {
+    content: '📁';
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
+/* Session items améliorés */
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    margin: 0.75rem 0;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.5);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.session-item:hover {
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateX(6px) translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.session-name {
+    font-weight: 500;
+    color: #334155;
+    font-size: 0.875rem;
+}
+
+.session-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* CORRECTION: Session info layout */
+.session-info {
+    flex: 1;
+}
+
+/* Timestamps élégants */
+.timestamp {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 400;
+    padding: 0.25rem 0.75rem;
+    background: rgba(248, 250, 252, 0.8);
+    border-radius: 8px;
+    border: 1px solid rgba(226, 232, 240, 0.5);
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.timestamp:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #6366f1;
+}
+
+/* Estados de carga mejorados */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #64748b;
+    font-style: italic;
+    background: rgba(248, 250, 252, 0.5);
+    border-radius: 12px;
+    border: 2px dashed rgba(226, 232, 240, 0.8);
+}
+
+/* Messages système modernes */
+.error-message {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 1rem 1.5rem;
+    border-radius: 16px;
+    margin: 1rem 0;
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #ef4444;
+}
+
+.success-message {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+    padding: 1rem 1.5rem;
+    border-radius: 16px;
+    margin: 1rem 0;
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #10b981;
+}
+
+/* CORRECTION: Responsive Design amélioré */
+@media (max-width: 1024px) {
+    .container {
+        padding: 1.5rem;
+        gap: 1.5rem;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .metrics-container {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+        gap: 1rem;
+    }
+
+    .dashboard-grid,
+    .metrics-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .card {
+        padding: 1.5rem;
+        border-radius: 20px;
+    }
+
+    .chart-container {
+        height: 300px;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        padding: 1rem;
+        border-radius: 16px;
+    }
+
+    .card-title {
+        font-size: 1.125rem;
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+    
+    .status-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .status-value {
+        align-self: flex-end;
+    }
+    
+    .session-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .session-actions {
+        justify-content: center;
+    }
+}
+
+/* CORRECTION: Animations douces avec délais échelonnés */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.6s ease-out;
+    animation-fill-mode: both;
+}
+
+.card:nth-child(1) { animation-delay: 0.1s; }
+.card:nth-child(2) { animation-delay: 0.2s; }
+.card:nth-child(3) { animation-delay: 0.3s; }
+
+/* CORRECTION: Animation des sessions */
+.session-item {
+    animation: fadeInUp 0.4s ease-out;
+    animation-fill-mode: both;
+}
+
+/* Performance optimizations */
+.card,
+.chart-card,
+.session-item {
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* CORRECTION: États de focus améliorés pour l'accessibilité */
+.card:focus-within,
+.session-item:focus-within {
+    outline: 2px solid rgba(99, 102, 241, 0.5);
+    outline-offset: 2px;
+}
+
+/* CORRECTION: Support des préférences de mouvement réduit */
+@media (prefers-reduced-motion: reduce) {
+    .card,
+    .session-item,
+    .status-item {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .card:hover,
+    .session-item:hover,
+    .status-item:hover {
+        transform: none !important;
+    }
+}
+
+/* CORRECTION: Support du mode sombre (préparation future) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #0f172a;
+        --text-primary: #f1f5f9;
+        --card-bg: rgba(30, 41, 59, 0.95);
+        --border-color: rgba(71, 85, 105, 0.3);
+    }
+    
+    /* Les styles sombres seront appliqués plus tard si nécessaire */
+}

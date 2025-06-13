@@ -1,0 +1,39 @@
+<div class="metrics-container">
+    <!-- Métrique Calme -->
+    <div class="metric-card">
+        <div class="progress-label">Calme</div>
+        <div class="circular-progress">
+            <svg>
+                <defs>
+                    <linearGradient id="calmGradient">
+                        <stop offset="0%" style="stop-color:#6366f1"/>
+                        <stop offset="100%" style="stop-color:#8b5cf6"/>
+                    </linearGradient>
+                </defs>
+                <circle class="progress-bg" cx="75" cy="75" r="65"></circle>
+                <circle class="progress-calm" cx="75" cy="75" r="65" id="calmProgress"></circle>
+            </svg>
+            <div class="progress-value" id="calmValue">0%</div>
+        </div>
+        <div class="timestamp" id="calmTimestamp">--</div>
+    </div>
+
+    <!-- Métrique Concentration -->
+    <div class="metric-card">
+        <div class="progress-label">Concentration</div>
+        <div class="circular-progress">
+            <svg>
+                <defs>
+                    <linearGradient id="focusGradient">
+                        <stop offset="0%" style="stop-color:#10b981"/>
+                        <stop offset="100%" style="stop-color:#34d399"/>
+                    </linearGradient>
+                </defs>
+                <circle class="progress-bg" cx="75" cy="75" r="65"></circle>
+                <circle class="progress-focus" cx="75" cy="75" r="65" id="focusProgress"></circle>
+            </svg>
+            <div class="progress-value" id="focusValue">0%</div>
+        </div>
+        <div class="timestamp" id="focusTimestamp">--</div>
+    </div>
+</div>
