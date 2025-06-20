@@ -4,25 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Neurosity Crown Monitor{% endblock %}</title>
-    
+
     <!-- Preconnect pour optimiser les performances -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- Fonts modernes -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <!-- Meta tags pour PWA et SEO -->
     <meta name="description" content="Monitor en temps réel pour casque Neurosity Crown - Visualisation des ondes cérébrales et métriques de concentration">
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    
+
     <!-- Custom CSS dans l'ordre correct -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
-    
+
     <!-- Styles inline pour l'optimisation critique -->
     <style>
         /* Critical CSS pour éviter le FOUC */
@@ -30,11 +30,11 @@
             opacity: 0;
             transition: opacity 0.3s ease;
         }
-        
+
         body.loaded {
             opacity: 1;
         }
-        
+
         /* Loader initial */
         .initial-loader {
             position: fixed;
@@ -50,17 +50,17 @@
             z-index: 9999;
             transition: opacity 0.5s ease, visibility 0.5s ease;
         }
-        
+
         .initial-loader.hidden {
             opacity: 0;
             visibility: hidden;
         }
-        
+
         .loader-content {
             text-align: center;
             animation: fadeIn 0.8s ease-out;
         }
-        
+
         .loader-logo {
             font-size: 2.5rem;
             font-weight: 700;
@@ -71,7 +71,7 @@
             margin-bottom: 1rem;
             animation: float 2s ease-in-out infinite;
         }
-        
+
         .loader-spinner {
             width: 40px;
             height: 40px;
@@ -81,29 +81,29 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 1rem;
         }
-        
+
         .loader-text {
             color: #64748b;
             font-size: 0.875rem;
             font-weight: 500;
         }
-        
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
     </style>
-    
+
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -118,12 +118,12 @@
 
     <!-- Navigation -->
     {% include 'components/navbar.html' %}
-    
+
     <!-- Main Content -->
     <main class="main-content">
         {% block content %}{% endblock %}
     </main>
-    
+
     <!-- Footer optionnel -->
     <footer class="app-footer" style="text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.75rem;">
         <div style="max-width: 1400px; margin: 0 auto;">
@@ -138,10 +138,10 @@
     <!-- External Libraries JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    
+
     <!-- Application JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    
+
     <!-- CORRECTION: JavaScript inline optimisé - Suppression des redondances -->
     <script>
         // CORRECTION: Variables globales centralisées
@@ -160,30 +160,30 @@
          */
         function initializeBaseComponents() {
             if (window.AppUtils.isInitialized) return;
-            
+
             console.log('🎨 Initialisation des composants de base...');
-            
+
             // Cacher le loader après un délai
             setTimeout(hideInitialLoader, 1000);
-            
+
             // Initialiser l'horloge
             initializeClock();
-            
+
             // Gestion responsive
             initializeResponsive();
-            
+
             // Améliorer l'accessibilité
             initializeAccessibility();
-            
+
             // Gestion des erreurs globales
             initializeErrorHandling();
-            
+
             // Performance monitoring
             initializePerformanceMonitoring();
-            
+
             // Détection de la connexion réseau
             initializeNetworkDetection();
-            
+
             window.AppUtils.isInitialized = true;
             console.log('✅ Composants de base initialisés');
         }
@@ -194,7 +194,7 @@
         function hideInitialLoader() {
             const loader = document.getElementById('initialLoader');
             const body = document.body;
-            
+
             if (loader) {
                 loader.classList.add('hidden');
                 setTimeout(() => {
@@ -203,7 +203,7 @@
                     }
                 }, 500);
             }
-            
+
             body.classList.add('loaded');
         }
 
@@ -213,7 +213,7 @@
         function initializeClock() {
             const timeElement = document.getElementById('currentTime');
             if (!timeElement) return;
-            
+
             function updateClock() {
                 try {
                     const now = new Date();
@@ -222,7 +222,7 @@
                     console.warn('Erreur mise à jour horloge:', e);
                 }
             }
-            
+
             updateClock();
             setInterval(updateClock, 1000);
         }
@@ -238,16 +238,16 @@
                     isMobile: window.innerWidth < 768,
                     isTablet: window.innerWidth >= 768 && window.innerWidth < 1024
                 };
-                
+
                 window.AppUtils.viewport = viewport;
-                
+
                 // CSS custom properties
                 document.documentElement.style.setProperty('--vh', `${viewport.height * 0.01}px`);
-                
+
                 // Émettre un événement pour les autres composants
                 window.dispatchEvent(new CustomEvent('viewportChange', { detail: viewport }));
             }
-            
+
             window.addEventListener('resize', updateViewport);
             window.addEventListener('orientationchange', updateViewport);
             updateViewport(); // Appel initial
@@ -263,11 +263,11 @@
                     document.body.classList.add('keyboard-navigation');
                 }
             });
-            
+
             document.addEventListener('mousedown', function() {
                 document.body.classList.remove('keyboard-navigation');
             });
-            
+
             // Raccourcis clavier globaux
             document.addEventListener('keydown', function(e) {
                 if (e.ctrlKey || e.metaKey) {
@@ -295,7 +295,7 @@
                     showToast('❌ Une erreur est survenue', 'error');
                 }
             });
-            
+
             // Promesses non gérées
             window.addEventListener('unhandledrejection', function(e) {
                 console.error('Promise rejetée:', e.reason);
@@ -310,7 +310,7 @@
          */
         function initializePerformanceMonitoring() {
             if (!('performance' in window)) return;
-            
+
             window.addEventListener('load', function() {
                 setTimeout(() => {
                     try {
@@ -321,7 +321,7 @@
                                 domReady: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart)
                             };
                             console.log('⚡ Performance:', metrics);
-                            
+
                             // Alerter si les performances sont dégradées
                             if (metrics.loadTime > 5000) {
                                 console.warn('⚠️ Temps de chargement élevé:', metrics.loadTime + 'ms');
@@ -341,7 +341,7 @@
             function updateNetworkStatus() {
                 const isOnline = navigator.onLine;
                 document.body.classList.toggle('offline', !isOnline);
-                
+
                 if (window.showToast) {
                     if (isOnline) {
                         showToast('🌐 Connexion rétablie', 'success', 2000);
@@ -350,7 +350,7 @@
                     }
                 }
             }
-            
+
             window.addEventListener('online', updateNetworkStatus);
             window.addEventListener('offline', updateNetworkStatus);
         }
@@ -360,7 +360,7 @@
          */
         function initializeIntersectionObserver() {
             if (!('IntersectionObserver' in window)) return;
-            
+
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
@@ -371,7 +371,7 @@
                 threshold: 0.1,
                 rootMargin: '50px'
             });
-            
+
             // Observer les éléments après un délai pour éviter la surcharge
             setTimeout(() => {
                 document.querySelectorAll('.card, .metric-card, .chart-card').forEach(element => {
@@ -385,7 +385,7 @@
             setTimeout(initializeIntersectionObserver, 1000);
         });
     </script>
-    
+
     <!-- CORRECTION: Styles CSS améliorés et consolidés -->
     <style>
         /* Navigation au clavier */
@@ -393,7 +393,7 @@
             outline: 2px solid #6366f1 !important;
             outline-offset: 2px !important;
         }
-        
+
         /* État hors ligne */
         .offline .navbar::after {
             content: '📱 Mode hors ligne';
@@ -409,7 +409,7 @@
             font-weight: 500;
             z-index: 1000;
         }
-        
+
         /* Animations pour les éléments en vue */
         .card:not(.in-view),
         .metric-card:not(.in-view),
@@ -417,7 +417,7 @@
             opacity: 0;
             transform: translateY(30px);
         }
-        
+
         .card.in-view,
         .metric-card.in-view,
         .chart-card.in-view {
@@ -425,13 +425,13 @@
             transform: translateY(0);
             transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         /* Responsive height units */
         .main-content {
             min-height: calc(100vh - 200px);
             min-height: calc(var(--vh, 1vh) * 100 - 200px);
         }
-        
+
         /* Print styles */
         @media print {
             .navbar,
@@ -441,25 +441,25 @@
             .initial-loader {
                 display: none !important;
             }
-            
+
             .card {
                 break-inside: avoid;
                 box-shadow: none !important;
                 border: 1px solid #e2e8f0 !important;
             }
         }
-        
+
         /* High contrast mode */
         @media (prefers-contrast: high) {
             .card {
                 border: 2px solid #1e293b !important;
             }
-            
+
             .btn {
                 border: 2px solid currentColor !important;
             }
         }
-        
+
         /* CORRECTION: Support des préférences de mouvement réduit */
         @media (prefers-reduced-motion: reduce) {
             *,
@@ -470,23 +470,23 @@
                 transition-duration: 0.01ms !important;
                 scroll-behavior: auto !important;
             }
-            
+
             .initial-loader {
                 animation: none !important;
             }
         }
-        
+
         /* CORRECTION: Mode sombre (préparation future) */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-primary: #0f172a;
                 --text-primary: #f1f5f9;
             }
-            
+
             /* Les styles sombres seront appliqués plus tard si nécessaire */
         }
     </style>
-    
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -812,7 +812,7 @@ class NeurosityManager:
         
         except Exception as e:
             print(f"❌ Erreur traitement données: {e}")
-            
+    
     def _check_connection_health(self):
         if self.is_monitoring and self.last_data_time:
             time_since_data = (datetime.now() - self.last_data_time).total_seconds()
@@ -1043,6 +1043,7 @@ def stop_recording():
     except Exception as e:
         print(f"❌ Erreur stop_recording: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/sessions')
 def get_sessions():

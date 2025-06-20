@@ -1,0 +1,44 @@
+=== RAPPORT DE SESSION NEUROSITY (ÉCHANTILLONNAGE 1S) ===
+Session: neurosity_session_20250613_174805
+Début: 2025-06-13 17:48:05
+Fin: 2025-06-13 17:48:06
+Durée: 1.8 secondes (0.0 minutes)
+Points de données: 3 (1 point/seconde)
+Fréquence d'échantillonnage: 1 Hz (1 seconde)
+
+CALME (3 mesures):
+  Moyenne: 79.0%
+  Maximum: 79.7%
+  Minimum: 77.7%
+
+CONCENTRATION (3 mesures):
+  Moyenne: 36.8%
+  Maximum: 43.2%
+  Minimum: 33.5%
+
+ONDES CÉRÉBRALES:
+  Delta (3 mesures):
+    Moyenne: 0.128 μV
+    Maximum: 0.133 μV
+    Minimum: 0.125 μV
+  Theta (3 mesures):
+    Moyenne: 0.220 μV
+    Maximum: 0.222 μV
+    Minimum: 0.216 μV
+  Alpha (3 mesures):
+    Moyenne: 0.428 μV
+    Maximum: 0.431 μV
+    Minimum: 0.427 μV
+  Beta (3 mesures):
+    Moyenne: 0.332 μV
+    Maximum: 0.336 μV
+    Minimum: 0.330 μV
+  Gamma (3 mesures):
+    Moyenne: 0.109 μV
+    Maximum: 0.120 μV
+    Minimum: 0.104 μV
+
+=== INFORMATIONS TECHNIQUES ===
+Méthode d'échantillonnage: Fixe à 1 Hz
+Stratégie: Dernière valeur connue si pas de nouvelles données
+Thread d'échantillonnage: Actif pendant l'enregistrement

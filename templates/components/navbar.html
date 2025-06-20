@@ -3,26 +3,26 @@
         <div class="logo">
             🧠 Neurosity Monitor
         </div>
-        
+
         <div class="nav-controls">
             <!-- Statut de connexion principal -->
             <div class="status-indicator">
                 <div class="status-dot status-disconnected" id="connectionStatus"></div>
                 <span id="connectionText">Déconnecté</span>
             </div>
-            
+
             <!-- Statut du dispositif (caché par défaut) -->
             <div class="status-indicator" id="deviceStatusIndicator" style="display: none;">
                 <div class="status-dot status-disconnected" id="deviceStatusDot"></div>
                 <span id="deviceStatusText">Dispositif</span>
             </div>
-            
+
             <!-- Statut d'enregistrement (caché par défaut) -->
             <div class="status-indicator recording-active" id="recordingStatus" style="display: none;">
                 <div class="status-dot status-recording"></div>
                 <span>🔴 Enregistrement...</span>
             </div>
-            
+
             <!-- Boutons de contrôle -->
             <button class="btn btn-primary" id="connectBtn" onclick="connectDevice()" title="Connecter le casque Neurosity (Ctrl+K)">
                 <span>🔗</span>

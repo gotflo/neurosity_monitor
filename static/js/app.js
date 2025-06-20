@@ -1,7 +1,8 @@
 /**
- * APPLICATION NEUROSITY MONITOR - FICHIER COMPLET RÉÉCRIT
+ * APPLICATION NEUROSITY MONITOR - FICHIER COMPLET UNIFIÉ
  * Interface utilisateur adaptée à la détection biologique réelle
  * Avec Sessions Manager optimisé pour milliers de fichiers
+ * Classes CSS préfixées avec "neuro_"
  */
 
 // État global de l'application
@@ -23,8 +24,22 @@ window.AppState = {
     debugMode: false
 };
 
+// Variables globales centralisées (migré depuis le HTML)
+window.AppUtils = {
+    isInitialized: false,
+    viewport: { width: 0, height: 0, isMobile: false, isTablet: false }
+};
+
+// Variables globales pour le statut de la navbar (gardées pour compatibilité)
+window.NavbarState = {
+    connected: false,
+    recording: false,
+    monitoring: false,
+    deviceOnline: false
+};
+
 // ===============================================
-// NOUVEAU: SESSIONS MANAGER OPTIMISÉ
+// NOUVEAU: SESSIONS MANAGER OPTIMISÉ (adapté aux nouvelles classes)
 // ===============================================
 
 window.SessionsManager = {
@@ -36,7 +51,7 @@ window.SessionsManager = {
     scrollContainer: null,
 
     init() {
-        this.scrollContainer = document.querySelector('.sessions-scroll-container');
+        this.scrollContainer = document.querySelector('.neuro_sessions-scroll-container');
         if (this.scrollContainer) {
             this.setupScrollHandlers();
         }
@@ -69,16 +84,16 @@ window.SessionsManager = {
         const hasScroll = scrollHeight > clientHeight;
 
         if (hasScroll) {
-            this.scrollContainer.classList.add('has-scroll');
+            this.scrollContainer.classList.add('neuro_has-scroll');
         } else {
-            this.scrollContainer.classList.remove('has-scroll');
+            this.scrollContainer.classList.remove('neuro_has-scroll');
         }
 
         // Ajouter classe pour optimiser les performances avec beaucoup d'éléments
         if (this.allSessions.length > 100) {
-            this.scrollContainer.classList.add('many-sessions');
+            this.scrollContainer.classList.add('neuro_many-sessions');
         } else {
-            this.scrollContainer.classList.remove('many-sessions');
+            this.scrollContainer.classList.remove('neuro_many-sessions');
         }
     },
 
@@ -136,7 +151,7 @@ window.SessionsManager = {
 
     createSessionElement(session, index) {
         const sessionItem = document.createElement('div');
-        sessionItem.className = 'session-item';
+        sessionItem.className = 'neuro_session-item';
         sessionItem.style.animationDelay = `${(index % 10) * 0.05}s`; // Animation échelonnée par groupes de 10
 
         const dateMatch = session.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
@@ -150,8 +165,8 @@ window.SessionsManager = {
         }
 
         sessionItem.innerHTML = `
-            <div class="session-info">
-                <div class="session-name">
+            <div class="neuro_session-info">
+                <div class="neuro_session-name">
                     ${session} 
                     <span style="color: #8b5cf6; font-size: 0.875rem;">✓</span>
                 </div>
@@ -161,8 +176,8 @@ window.SessionsManager = {
                     <span style="color: #8b5cf6;">🔬 Données biologiques validées</span>
                 </div>
             </div>
-            <div class="session-actions">
-                <button class="btn btn-outline btn-small" onclick="downloadSession('${session}')" title="Télécharger CSV validé">
+            <div class="neuro_session-actions">
+                <button class="neuro_btn neuro_btn-outline neuro_btn-small" onclick="downloadSession('${session}')" title="Télécharger CSV validé">
                     <span>⬇️</span> CSV
                 </button>
             </div>
@@ -195,10 +210,302 @@ window.SessionsManager = {
 };
 
 /**
+ * Initialisation centralisée (migré depuis le HTML)
+ */
+function initializeBaseComponents() {
+    if (window.AppUtils.isInitialized) return;
+
+    console.log('🎨 Initialisation des composants de base...');
+
+    // Cacher le loader après un délai
+    setTimeout(hideInitialLoader, 1000);
+
+    // Initialiser l'horloge
+    initializeClock();
+
+    // Gestion responsive
+    initializeResponsive();
+
+    // Améliorer l'accessibilité
+    initializeAccessibility();
+
+    // Gestion des erreurs globales
+    initializeErrorHandling();
+
+    // Performance monitoring
+    initializePerformanceMonitoring();
+
+    // Détection de la connexion réseau
+    initializeNetworkDetection();
+
+    window.AppUtils.isInitialized = true;
+    console.log('✅ Composants de base initialisés');
+}
+
+/**
+ * Gestion du loader améliorée (migré depuis le HTML)
+ */
+function hideInitialLoader() {
+    const loader = document.getElementById('initialLoader');
+    const body = document.body;
+
+    if (loader) {
+        loader.classList.add('neuro_hidden');
+        setTimeout(() => {
+            if (loader.parentNode) {
+                loader.parentNode.removeChild(loader);
+            }
+        }, 500);
+    }
+
+    body.classList.add('neuro_loaded');
+}
+
+/**
+ * Horloge optimisée (migré depuis le HTML)
+ */
+function initializeClock() {
+    const timeElement = document.getElementById('currentTime');
+    if (!timeElement) return;
+
+    function updateClock() {
+        try {
+            const now = new Date();
+            timeElement.textContent = now.toLocaleTimeString('fr-FR');
+        } catch (e) {
+            console.warn('Erreur mise à jour horloge:', e);
+        }
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+}
+
+/**
+ * Gestion responsive centralisée (migré depuis le HTML)
+ */
+function initializeResponsive() {
+    function updateViewport() {
+        const viewport = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            isMobile: window.innerWidth < 768,
+            isTablet: window.innerWidth >= 768 && window.innerWidth < 1024
+        };
+
+        window.AppUtils.viewport = viewport;
+
+        // CSS custom properties
+        document.documentElement.style.setProperty('--vh', `${viewport.height * 0.01}px`);
+
+        // Émettre un événement pour les autres composants
+        window.dispatchEvent(new CustomEvent('viewportChange', { detail: viewport }));
+    }
+
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('orientationchange', updateViewport);
+    updateViewport(); // Appel initial
+}
+
+/**
+ * Accessibilité améliorée (migré depuis le HTML)
+ */
+function initializeAccessibility() {
+    // Navigation au clavier
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            document.body.classList.add('neuro_keyboard-navigation');
+        }
+    });
+
+    document.addEventListener('mousedown', function() {
+        document.body.classList.remove('neuro_keyboard-navigation');
+    });
+
+    // Raccourcis clavier globaux
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'k':
+                    e.preventDefault();
+                    if (window.connectDevice) connectDevice();
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    if (window.toggleRecording) toggleRecording();
+                    break;
+            }
+        }
+    });
+}
+
+/**
+ * Gestion d'erreurs centralisée (migré depuis le HTML)
+ */
+function initializeErrorHandling() {
+    window.addEventListener('error', function(e) {
+        console.error('Erreur globale:', e.error);
+        if (window.showToast) {
+            showToast('❌ Une erreur est survenue', 'error');
+        }
+    });
+
+    // Promesses non gérées
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('Promise rejetée:', e.reason);
+        if (window.showToast) {
+            showToast('❌ Erreur asynchrone', 'error');
+        }
+    });
+}
+
+/**
+ * Monitoring de performance optimisé (migré depuis le HTML)
+ */
+function initializePerformanceMonitoring() {
+    if (!('performance' in window)) return;
+
+    window.addEventListener('load', function() {
+        setTimeout(() => {
+            try {
+                const perfData = performance.getEntriesByType('navigation')[0];
+                if (perfData) {
+                    const metrics = {
+                        loadTime: Math.round(perfData.loadEventEnd - perfData.fetchStart),
+                        domReady: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart)
+                    };
+                    console.log('⚡ Performance:', metrics);
+
+                    // Alerter si les performances sont dégradées
+                    if (metrics.loadTime > 5000) {
+                        console.warn('⚠️ Temps de chargement élevé:', metrics.loadTime + 'ms');
+                    }
+                }
+            } catch (e) {
+                console.warn('Erreur monitoring performance:', e);
+            }
+        }, 100);
+    });
+}
+
+/**
+ * Détection réseau améliorée (migré depuis le HTML)
+ */
+function initializeNetworkDetection() {
+    function updateNetworkStatus() {
+        const isOnline = navigator.onLine;
+        document.body.classList.toggle('neuro_offline', !isOnline);
+
+        if (window.showToast) {
+            if (isOnline) {
+                showToast('🌐 Connexion rétablie', 'success', 2000);
+            } else {
+                showToast('📱 Mode hors ligne', 'warning', 5000);
+            }
+        }
+    }
+
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+}
+
+/**
+ * Intersection Observer pour les animations d'entrée (migré depuis le HTML)
+ */
+function initializeIntersectionObserver() {
+    if (!('IntersectionObserver' in window)) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('neuro_in-view');
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '50px'
+    });
+
+    // Observer les éléments après un délai pour éviter la surcharge
+    setTimeout(() => {
+        document.querySelectorAll('.neuro_card, .neuro_metric-card, .neuro_chart-card').forEach(element => {
+            observer.observe(element);
+        });
+    }, 500);
+}
+
+/**
+ * Fonction simplifiée pour la gestion responsive (migré depuis le HTML)
+ */
+function handleNavbarResize() {
+    const navControls = document.querySelector('.neuro_nav-controls');
+    const isMobile = window.innerWidth < 768;
+    const isSmallMobile = window.innerWidth < 480;
+
+    if (navControls) {
+        if (isSmallMobile) {
+            // Cacher le texte des boutons sur très petits écrans
+            document.querySelectorAll('.neuro_btn-text').forEach(text => {
+                text.style.display = 'none';
+            });
+        } else {
+            // Afficher le texte des boutons
+            document.querySelectorAll('.neuro_btn-text').forEach(text => {
+                text.style.display = 'inline';
+            });
+        }
+    }
+}
+
+/**
+ * Fonction d'actualisation spécifique à cette page (migré depuis le HTML)
+ */
+function refreshSessions() {
+    const refreshBtn = document.querySelector('.neuro_sessions-refresh-btn');
+    if (!refreshBtn) return;
+
+    const originalText = refreshBtn.innerHTML;
+    const iconSpan = refreshBtn.querySelector('span:first-child');
+
+    // Animation du bouton
+    if (iconSpan) {
+        iconSpan.style.animation = 'neuro_spin 1s linear infinite';
+    }
+    refreshBtn.innerHTML = '<span style="animation: neuro_spin 1s linear infinite;">🔄</span> <span class="neuro_btn-text">Actualisation...</span>';
+    refreshBtn.disabled = true;
+
+    if (window.showToast) {
+        showToast('🔄 Actualisation des sessions...', 'info', 2000);
+    }
+
+    // Appeler la fonction globale loadSessions
+    if (window.loadSessions) {
+        window.loadSessions().finally(() => {
+            setTimeout(() => {
+                refreshBtn.innerHTML = originalText;
+                refreshBtn.disabled = false;
+                if (iconSpan) {
+                    iconSpan.style.animation = '';
+                }
+            }, 1000);
+        });
+    } else {
+        // Fallback si loadSessions n'est pas disponible
+        setTimeout(() => {
+            refreshBtn.innerHTML = originalText;
+            refreshBtn.disabled = false;
+        }, 1000);
+    }
+}
+
+/**
  * Initialisation au chargement de la page
  */
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Démarrage Neurosity Monitor');
+
+    // Initialisation centralisée
+    initializeBaseComponents();
 
     initializeUI();
     initializeCharts();
@@ -208,9 +515,45 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialiser le gestionnaire de sessions optimisé
     window.SessionsManager.init();
 
+    // Gestion responsive initiale (migré depuis le HTML)
+    handleNavbarResize();
+
+    // Animation de chargement des éléments de la navbar (migré depuis le HTML)
+    const navElements = document.querySelectorAll('.neuro_nav-controls > *');
+    navElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(-10px)';
+
+        setTimeout(() => {
+            element.style.transition = 'all 0.3s ease';
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 100 * (index + 1));
+    });
+
+    // Animation d'entrée pour les éléments de cette page (migré depuis le HTML)
+    const cards = document.querySelectorAll('.neuro_dashboard-grid .neuro_card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, 200 * (index + 1));
+    });
+
+    // Initialiser l'intersection observer
+    setTimeout(initializeIntersectionObserver, 1000);
+
     showToast('🧠 Application prête ! Détection activée - Allumez votre casque Neurosity Crown puis cliquez "Connecter"', 'info', 8000);
     console.log('✅ Application prête avec détection et Sessions Manager optimisé');
 });
+
+// Écouteurs d'événements pour la navbar (uniquement responsive) (migré depuis le HTML)
+window.addEventListener('resize', handleNavbarResize);
+window.addEventListener('orientationchange', handleNavbarResize);
 
 /**
  * Système de notifications Toast amélioré pour la détection
@@ -234,7 +577,7 @@ function showToast(message, type = 'info', duration = 4000) {
     }
 
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `neuro_toast neuro_toast-${type}`;
     toast.style.cssText = `
         padding: 16px 22px;
         border-radius: 12px;
@@ -330,7 +673,7 @@ function initializeUI() {
  * Ajoute un indicateur de mode détection
  */
 function addStrictDetectionIndicator() {
-    const navbar = document.querySelector('.navbar');
+    const navbar = document.querySelector('.neuro_navbar');
     if (navbar && !document.getElementById('strictModeIndicator')) {
         const indicator = document.createElement('div');
         indicator.id = 'strictModeIndicator';
@@ -453,13 +796,13 @@ function updateConnectionButton(connected) {
     if (!connectBtn) return;
 
     if (connected) {
-        connectBtn.innerHTML = '<span>🔌</span><span class="btn-text">Déconnecter</span>';
-        connectBtn.className = 'btn btn-danger';
+        connectBtn.innerHTML = '<span>🔌</span><span class="neuro_btn-text">Déconnecter</span>';
+        connectBtn.className = 'neuro_btn neuro_btn-danger';
         connectBtn.onclick = disconnectDevice;
         connectBtn.title = 'Déconnecter le casque Neurosity';
     } else {
-        connectBtn.innerHTML = '<span>🔗</span><span class="btn-text">Connecter</span>';
-        connectBtn.className = 'btn btn-primary';
+        connectBtn.innerHTML = '<span>🔗</span><span class="neuro_btn-text">Connecter</span>';
+        connectBtn.className = 'neuro_btn neuro_btn-primary';
         connectBtn.onclick = connectDevice;
         connectBtn.title = 'Connecter le casque Neurosity (Ctrl+K)';
     }
@@ -476,7 +819,7 @@ function disconnectDevice() {
     const connectBtn = document.getElementById('connectBtn');
     if (connectBtn) {
         connectBtn.disabled = true;
-        connectBtn.innerHTML = '<span>⏳</span><span class="btn-text">Déconnexion...</span>';
+        connectBtn.innerHTML = '<span>⏳</span><span class="neuro_btn-text">Déconnexion...</span>';
     }
 
     fetch('/disconnect', {
@@ -522,7 +865,7 @@ function connectDevice() {
     const connectBtn = document.getElementById('connectBtn');
     if (connectBtn) {
         connectBtn.disabled = true;
-        connectBtn.innerHTML = '<span>⏳</span><span class="btn-text">Connexion...</span>';
+        connectBtn.innerHTML = '<span>⏳</span><span class="neuro_btn-text">Connexion...</span>';
     }
 
     showToast('🔄 Connexion en cours...', 'info', 3000);
@@ -643,7 +986,7 @@ function updateDeviceStatus(deviceStatus) {
     if (deviceIndicator && deviceDot && deviceText) {
         if (deviceStatus.online) {
             deviceIndicator.style.display = 'flex';
-            deviceDot.className = 'status-dot status-connected';
+            deviceDot.className = 'neuro_status-dot neuro_status-connected';
 
             // Information enrichie avec validation
             let statusText = 'Crown';
@@ -685,9 +1028,9 @@ function updateConnectionHealth(healthy) {
     const connectionStatus = document.getElementById('connectionStatus');
     if (connectionStatus && window.AppState.isConnected) {
         if (healthy) {
-            connectionStatus.className = 'status-dot status-connected';
+            connectionStatus.className = 'neuro_status-dot neuro_status-connected';
         } else {
-            connectionStatus.className = 'status-dot status-recording'; // Orange pour warning
+            connectionStatus.className = 'neuro_status-dot neuro_status-recording'; // Orange pour warning
         }
     }
 }
@@ -696,7 +1039,7 @@ function updateConnectionHealth(healthy) {
  * Met à jour le statut de monitoring
  */
 function updateMonitoringStatus(monitoring) {
-    const charts = document.querySelectorAll('.chart-card');
+    const charts = document.querySelectorAll('.neuro_chart-card');
     charts.forEach(chart => {
         if (monitoring) {
             chart.style.borderLeft = '4px solid #10b981';
@@ -968,10 +1311,10 @@ function updateConnectionStatus(connected, recording, monitoring) {
     // Statut de connexion
     if (connectionStatus && connectionText) {
         if (connected) {
-            connectionStatus.className = 'status-dot status-connected';
+            connectionStatus.className = 'neuro_status-dot neuro_status-connected';
             connectionText.textContent = 'Connecté (Validé)';
         } else {
-            connectionStatus.className = 'status-dot status-disconnected';
+            connectionStatus.className = 'neuro_status-dot neuro_status-disconnected';
             connectionText.textContent = 'Déconnecté';
         }
     }
@@ -981,11 +1324,11 @@ function updateConnectionStatus(connected, recording, monitoring) {
         recordBtn.disabled = !connected;
 
         if (recording) {
-            recordBtn.innerHTML = '<span>⏹️</span><span class="btn-text"> Arrêter</span>';
-            recordBtn.className = 'btn btn-danger';
+            recordBtn.innerHTML = '<span>⏹️</span><span class="neuro_btn-text"> Arrêter</span>';
+            recordBtn.className = 'neuro_btn neuro_btn-danger';
         } else {
-            recordBtn.innerHTML = '<span>⏺️</span><span class="btn-text"> Enregistrer</span>';
-            recordBtn.className = 'btn btn-success';
+            recordBtn.innerHTML = '<span>⏺️</span><span class="neuro_btn-text"> Enregistrer</span>';
+            recordBtn.className = 'neuro_btn neuro_btn-success';
         }
     }
 
@@ -1082,9 +1425,9 @@ function handleBrainwavesData(data) {
  */
 function flashDataIndicator(type) {
     const elements = {
-        'calm': document.querySelector('.metric-card:nth-child(1)'),
-        'focus': document.querySelector('.metric-card:nth-child(2)'),
-        'brainwaves': document.querySelector('.chart-card')
+        'calm': document.querySelector('.neuro_metric-card:nth-child(1)'),
+        'focus': document.querySelector('.neuro_metric-card:nth-child(2)'),
+        'brainwaves': document.querySelector('.neuro_chart-card')
     };
 
     const element = elements[type];
@@ -1140,14 +1483,14 @@ function displaySessionsOptimized(sessions) {
 
     if (sessions.length === 0) {
         sessionsList.innerHTML = `
-            <div class="sessions-empty">
+            <div class="neuro_sessions-empty">
                 Aucune session validée enregistrée
                 <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">
                     Connectez votre casque avec détection pour créer une session
                 </div>
             </div>
         `;
-        sessionsList.className = 'sessions-empty';
+        sessionsList.className = 'neuro_sessions-empty';
 
         // Mettre à jour les statistiques
         updateSessionsStats([]);
@@ -1176,7 +1519,7 @@ function displaySessionsOptimized(sessions) {
         // Ajouter un indicateur de chargement progressif
         if (window.SessionsManager.hasMoreSessions()) {
             const loadMoreIndicator = document.createElement('div');
-            loadMoreIndicator.className = 'load-more-indicator';
+            loadMoreIndicator.className = 'neuro_load-more-indicator';
             loadMoreIndicator.innerHTML = `
                 <div style="text-align: center; padding: 1rem; color: #8b5cf6; font-size: 0.875rem;">
                     📄 ${sessions.length - window.SessionsManager.itemsPerPage} sessions supplémentaires disponibles
@@ -1557,5 +1900,6 @@ window.showToast = showToast;
 window.startMonitoring = startMonitoring;
 window.stopMonitoring = stopMonitoring;
 window.toggleDebugMode = toggleDebugMode;
+window.refreshSessions = refreshSessions;
 
 console.log('✅ Application Neurosity Monitor chargée complètement avec Sessions Manager optimisé pour milliers de fichiers');
