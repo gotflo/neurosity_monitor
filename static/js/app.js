@@ -1,8 +1,9 @@
 /**
- * APPLICATION NEUROSITY MONITOR - FICHIER COMPLET UNIFIÉ
+ * APPLICATION NEUROSITY MONITOR - FICHIER COMPLET UNIFIÉ AVEC CONNEXION
  * Interface utilisateur adaptée à la détection biologique réelle
  * Avec Sessions Manager optimisé pour milliers de fichiers
  * Classes CSS préfixées avec "neuro_"
+ * NOUVEAU: Gestion de l'authentification par interface web
  */
 
 // État global de l'application
@@ -21,7 +22,14 @@ window.AppState = {
     connectionHealth: true,
     lastDataTime: null,
     detectionInProgress: false,
-    debugMode: false
+    debugMode: false,
+    // NOUVEAU: Stockage temporaire des credentials
+    credentials: {
+        email: null,
+        password: null,
+        device_id: null
+    },
+    isLoggedIn: false
 };
 
 // Variables globales centralisées (migré depuis le HTML)
@@ -39,7 +47,318 @@ window.NavbarState = {
 };
 
 // ===============================================
-// NOUVEAU: SESSIONS MANAGER OPTIMISÉ (adapté aux nouvelles classes)
+// NOUVEAU: GESTION DE L'AUTHENTIFICATION
+// ===============================================
+
+/**
+ * Initialise l'écran de connexion
+ */
+function initializeLoginScreen() {
+    console.log('🔐 Initialisation de l\'écran de connexion...');
+
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+
+    if (!loginForm || !loginBtn) {
+        console.error('❌ Éléments de connexion introuvables');
+        return;
+    }
+
+    // Gestionnaire de soumission du formulaire
+    loginForm.addEventListener('submit', handleLogin);
+
+    // Validation en temps réel des champs
+    const inputs = loginForm.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('input', validateLoginForm);
+        input.addEventListener('blur', validateLoginForm);
+    });
+
+    // Focus automatique sur le premier champ
+    const firstInput = loginForm.querySelector('input');
+    if (firstInput) {
+        setTimeout(() => firstInput.focus(), 500);
+    }
+
+    console.log('✅ Écran de connexion initialisé');
+}
+
+/**
+ * Gère la soumission du formulaire de connexion
+ */
+async function handleLogin(event) {
+    event.preventDefault();
+
+    const loginBtn = document.getElementById('loginBtn');
+    const formData = new FormData(event.target);
+
+    // Récupérer les données du formulaire
+    const credentials = {
+        email: formData.get('email'),
+        password: formData.get('password'),
+        device_id: formData.get('device_id')
+    };
+
+    // Validation basique
+    if (!credentials.email || !credentials.password || !credentials.device_id) {
+        showToast('❌ Tous les champs sont requis', 'error');
+        return;
+    }
+
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(credentials.email)) {
+        showToast('❌ Format d\'email invalide', 'error');
+        return;
+    }
+
+    // Validation device ID (basique)
+    if (credentials.device_id.length < 10) {
+        showToast('❌ Device ID trop court', 'error');
+        return;
+    }
+
+    // Désactiver le bouton et afficher le loading
+    if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.classList.add('neuro_loading');
+        loginBtn.innerHTML = '<span>⏳</span><span class="neuro_btn-text">Connexion...</span>';
+    }
+
+    try {
+        console.log('🔐 Tentative de connexion avec les credentials...');
+        showToast('🔐 Validation des identifiants...', 'info', 3000);
+
+        // Envoyer les credentials au serveur
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(credentials)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Stocker les credentials temporairement (en mémoire uniquement)
+            window.AppState.credentials = credentials;
+            window.AppState.isLoggedIn = true;
+
+            showToast('✅ Connexion réussie ! Chargement du dashboard...', 'success', 3000);
+
+            // Transition vers le dashboard
+            setTimeout(() => {
+                showDashboard();
+            }, 1000);
+
+        } else {
+            throw new Error(result.error || 'Erreur de connexion');
+        }
+
+    } catch (error) {
+        console.error('❌ Erreur de connexion:', error);
+        showToast('❌ ' + error.message, 'error', 8000);
+
+        // Réactiver le bouton
+        if (loginBtn) {
+            loginBtn.disabled = false;
+            loginBtn.classList.remove('neuro_loading');
+            loginBtn.innerHTML = '<span>🚀</span><span class="neuro_btn-text">Se connecter au casque</span>';
+        }
+    }
+}
+
+/**
+ * Valide le formulaire de connexion en temps réel
+ */
+function validateLoginForm() {
+    const loginBtn = document.getElementById('loginBtn');
+    const inputs = document.querySelectorAll('#loginForm input');
+
+    if (!loginBtn || !inputs.length) return;
+
+    let allValid = true;
+    inputs.forEach(input => {
+        if (!input.value.trim()) {
+            allValid = false;
+        }
+    });
+
+    loginBtn.disabled = !allValid;
+}
+
+/**
+ * Affiche le dashboard après connexion réussie
+ */
+function showDashboard() {
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+
+    if (!loginScreen || !mainApp) {
+        console.error('❌ Éléments d\'affichage introuvables');
+        return;
+    }
+
+    console.log('🎨 Transition vers le dashboard...');
+
+    // Animation de sortie de l'écran de login
+    loginScreen.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    loginScreen.style.opacity = '0';
+    loginScreen.style.transform = 'scale(0.95)';
+
+    setTimeout(() => {
+        loginScreen.style.display = 'none';
+        mainApp.style.display = 'block';
+
+        // Animation d'entrée du dashboard
+        mainApp.style.opacity = '0';
+        mainApp.style.transform = 'scale(0.95)';
+        mainApp.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+
+        setTimeout(() => {
+            mainApp.style.opacity = '1';
+            mainApp.style.transform = 'scale(1)';
+
+            // Initialiser l'application principale
+            initializeMainApp();
+        }, 50);
+    }, 500);
+}
+
+/**
+ * Déconnecte l'utilisateur et retourne à l'écran de login
+ */
+function logoutUser() {
+    if (!confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+        return;
+    }
+
+    console.log('🚪 Déconnexion utilisateur...');
+
+    // Nettoyer l'état global
+    window.AppState.credentials = { email: null, password: null, device_id: null };
+    window.AppState.isLoggedIn = false;
+    window.AppState.isConnected = false;
+    window.AppState.isMonitoring = false;
+    window.AppState.isRecording = false;
+
+    // Déconnecter le casque s'il était connecté
+    if (window.AppState.isConnected) {
+        disconnectDevice();
+    }
+
+    // Fermer WebSocket
+    if (window.AppState.socket) {
+        window.AppState.socket.disconnect();
+        window.AppState.socket = null;
+    }
+
+    showToast('👋 Déconnexion réussie', 'info', 2000);
+
+    // Transition vers l'écran de login
+    setTimeout(() => {
+        showLoginScreen();
+    }, 1000);
+}
+
+/**
+ * Affiche l'écran de login
+ */
+function showLoginScreen() {
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+
+    if (!loginScreen || !mainApp) {
+        console.error('❌ Éléments d\'affichage introuvables');
+        return;
+    }
+
+    // Animation de sortie du dashboard
+    mainApp.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    mainApp.style.opacity = '0';
+    mainApp.style.transform = 'scale(0.95)';
+
+    setTimeout(() => {
+        mainApp.style.display = 'none';
+        loginScreen.style.display = 'flex';
+
+        // Réinitialiser le formulaire
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.reset();
+        }
+
+        // Animation d'entrée de l'écran de login
+        loginScreen.style.opacity = '0';
+        loginScreen.style.transform = 'scale(0.95)';
+        loginScreen.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+
+        setTimeout(() => {
+            loginScreen.style.opacity = '1';
+            loginScreen.style.transform = 'scale(1)';
+
+            // Focus sur le premier champ
+            const firstInput = loginForm.querySelector('input');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 300);
+            }
+        }, 50);
+    }, 500);
+}
+
+/**
+ * Initialise l'application principale après connexion
+ */
+function initializeMainApp() {
+    console.log('🎨 Initialisation de l\'application principale...');
+
+    initializeUI();
+    initializeCharts();
+    initializeWebSocket();
+    loadSessions();
+
+    // Initialiser le gestionnaire de sessions optimisé
+    window.SessionsManager.init();
+
+    // Gestion responsive initiale
+    handleNavbarResize();
+
+    // Animation de chargement des éléments de la navbar
+    const navElements = document.querySelectorAll('.neuro_nav-controls > *');
+    navElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(-10px)';
+
+        setTimeout(() => {
+            element.style.transition = 'all 0.3s ease';
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 100 * (index + 1));
+    });
+
+    // Animation d'entrée pour les éléments de cette page
+    const cards = document.querySelectorAll('.neuro_dashboard-grid .neuro_card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, 200 * (index + 1));
+    });
+
+    // Initialiser l'intersection observer
+    setTimeout(initializeIntersectionObserver, 1000);
+
+    showToast('🧠 Dashboard prêt ! Cliquez "Connecter" pour détecter votre casque Neurosity Crown', 'info', 6000);
+    console.log('✅ Application principale initialisée avec gestion de connexion');
+}
+
+// ===============================================
+// SESSIONS MANAGER OPTIMISÉ (adapté aux nouvelles classes)
 // ===============================================
 
 window.SessionsManager = {
@@ -328,11 +647,11 @@ function initializeAccessibility() {
             switch(e.key) {
                 case 'k':
                     e.preventDefault();
-                    if (window.connectDevice) connectDevice();
+                    if (window.AppState.isLoggedIn && window.connectDevice) connectDevice();
                     break;
                 case 'r':
                     e.preventDefault();
-                    if (window.toggleRecording) toggleRecording();
+                    if (window.AppState.isLoggedIn && window.toggleRecording) toggleRecording();
                     break;
             }
         }
@@ -502,53 +821,15 @@ function refreshSessions() {
  * Initialisation au chargement de la page
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Démarrage Neurosity Monitor');
+    console.log('🚀 Démarrage Neurosity Monitor avec gestion de connexion');
 
     // Initialisation centralisée
     initializeBaseComponents();
 
-    initializeUI();
-    initializeCharts();
-    initializeWebSocket();
-    loadSessions();
+    // NOUVEAU: Initialiser l'écran de connexion
+    initializeLoginScreen();
 
-    // Initialiser le gestionnaire de sessions optimisé
-    window.SessionsManager.init();
-
-    // Gestion responsive initiale (migré depuis le HTML)
-    handleNavbarResize();
-
-    // Animation de chargement des éléments de la navbar (migré depuis le HTML)
-    const navElements = document.querySelectorAll('.neuro_nav-controls > *');
-    navElements.forEach((element, index) => {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(-10px)';
-
-        setTimeout(() => {
-            element.style.transition = 'all 0.3s ease';
-            element.style.opacity = '1';
-            element.style.transform = 'translateY(0)';
-        }, 100 * (index + 1));
-    });
-
-    // Animation d'entrée pour les éléments de cette page (migré depuis le HTML)
-    const cards = document.querySelectorAll('.neuro_dashboard-grid .neuro_card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-
-        setTimeout(() => {
-            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, 200 * (index + 1));
-    });
-
-    // Initialiser l'intersection observer
-    setTimeout(initializeIntersectionObserver, 1000);
-
-    showToast('🧠 Application prête ! Détection activée - Allumez votre casque Neurosity Crown puis cliquez "Connecter"', 'info', 8000);
-    console.log('✅ Application prête avec détection et Sessions Manager optimisé');
+    console.log('✅ Application Neurosity Monitor chargée avec interface de connexion');
 });
 
 // Écouteurs d'événements pour la navbar (uniquement responsive) (migré depuis le HTML)
@@ -796,12 +1077,12 @@ function updateConnectionButton(connected) {
     if (!connectBtn) return;
 
     if (connected) {
-        connectBtn.innerHTML = '<span>🔌</span><span class="neuro_btn-text">Déconnecter</span>';
+        connectBtn.innerHTML = '<span>🔌</span><span class="neuro_btn-text">Déconnecter le casque</span>';
         connectBtn.className = 'neuro_btn neuro_btn-danger';
         connectBtn.onclick = disconnectDevice;
         connectBtn.title = 'Déconnecter le casque Neurosity';
     } else {
-        connectBtn.innerHTML = '<span>🔗</span><span class="neuro_btn-text">Connecter</span>';
+        connectBtn.innerHTML = '<span>🔗</span><span class="neuro_btn-text">Démarrer</span>';
         connectBtn.className = 'neuro_btn neuro_btn-primary';
         connectBtn.onclick = connectDevice;
         connectBtn.title = 'Connecter le casque Neurosity (Ctrl+K)';
@@ -859,22 +1140,29 @@ function disconnectDevice() {
 }
 
 /**
- * Connecte le casque avec interface de détection stricte
+ * MODIFIÉ: Connecte le casque avec les credentials stockés
  */
 function connectDevice() {
+    if (!window.AppState.isLoggedIn || !window.AppState.credentials.email) {
+        showToast('❌ Erreur: Identifiants manquants. Rechargez la page.', 'error');
+        return;
+    }
+
     const connectBtn = document.getElementById('connectBtn');
     if (connectBtn) {
         connectBtn.disabled = true;
         connectBtn.innerHTML = '<span>⏳</span><span class="neuro_btn-text">Connexion...</span>';
     }
 
-    showToast('🔄 Connexion en cours...', 'info', 3000);
+    showToast('🔄 Connexion au casque en cours...', 'info', 3000);
 
+    // MODIFIÉ: Envoyer les credentials avec la requête de connexion
     fetch('/connect', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(window.AppState.credentials)
     })
     .then(response => response.json())
     .then(data => {
@@ -1834,6 +2122,9 @@ function showMessage(message, type) {
 
 // Gestionnaire de clavier pour la recherche rapide et raccourcis
 document.addEventListener('keydown', function(e) {
+    // Seulement si on est connecté
+    if (!window.AppState.isLoggedIn) return;
+
     // Ctrl/Cmd + F pour ouvrir une recherche rapide de sessions
     if ((e.ctrlKey || e.metaKey) && e.key === 'f' && window.SessionsManager.allSessions.length > 0) {
         e.preventDefault();
@@ -1901,5 +2192,6 @@ window.startMonitoring = startMonitoring;
 window.stopMonitoring = stopMonitoring;
 window.toggleDebugMode = toggleDebugMode;
 window.refreshSessions = refreshSessions;
+window.logoutUser = logoutUser;
 
-console.log('✅ Application Neurosity Monitor chargée complètement avec Sessions Manager optimisé pour milliers de fichiers');
+console.log('✅ Application Neurosity Monitor chargée complètement avec interface de connexion et Sessions Manager optimisé');

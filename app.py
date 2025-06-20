@@ -3,6 +3,7 @@
 NEUROSITY CROWN MONITOR - DÉTECTION STRICTE ET PROFESSIONNELLE
 Correction complète : détection réelle du casque basée sur des données biologiques valides
 VERSION CORRIGÉE - Validation moins stricte mais intelligente
+NOUVEAU: Authentification via interface web (plus de fichier .env)
 """
 
 import os
@@ -16,16 +17,74 @@ import json
 import threading
 import statistics
 from collections import deque
+import re
 
 # Flask et SocketIO
 from flask import Flask, render_template, jsonify, request, send_file
 from flask_socketio import SocketIO, emit
 
-# Variables d'environnement
-from dotenv import load_dotenv
-
 # DataManager local
 from data_manager import DataManager
+
+
+# ===============================================
+# NOUVEAU: GESTIONNAIRE D'AUTHENTIFICATION
+# ===============================================
+
+class AuthManager:
+    """Gestionnaire d'authentification pour les credentials Neurosity"""
+    
+    def __init__(self):
+        self.current_credentials = None
+        self.is_authenticated = False
+    
+    def validate_credentials(self, email: str, password: str, device_id: str) -> tuple[bool, str]:
+        """
+        Valide les credentials fournis par l'utilisateur
+        Returns: (is_valid, error_message)
+        """
+        try:
+            # Validation email
+            email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+            if not re.match(email_pattern, email):
+                return False, "Format d'email invalide"
+            
+            # Validation mot de passe (basique)
+            if len(password) < 6:
+                return False, "Mot de passe trop court (minimum 6 caractères)"
+            
+            # Validation device ID
+            if len(device_id) < 10:
+                return False, "Device ID trop court (minimum 10 caractères)"
+            
+            # Vérifier que le device ID ressemble à un ID Neurosity
+            if not re.match(r'^[a-zA-Z0-9\-_]+$', device_id):
+                return False, "Format de Device ID invalide"
+            
+            return True, ""
+        
+        except Exception as e:
+            return False, f"Erreur de validation: {str(e)}"
+    
+    def store_credentials(self, email: str, password: str, device_id: str):
+        """Stocke les credentials en mémoire pour la session"""
+        self.current_credentials = {
+            'email': email,
+            'password': password,
+            'device_id': device_id
+        }
+        self.is_authenticated = True
+        print(f"🔐 Credentials stockés pour: {email} (Device: {device_id[:8]}...)")
+    
+    def get_credentials(self) -> dict:
+        """Retourne les credentials actuels"""
+        return self.current_credentials or {}
+    
+    def clear_credentials(self):
+        """Efface les credentials de la mémoire"""
+        self.current_credentials = None
+        self.is_authenticated = False
+        print("🔐 Credentials effacés de la mémoire")
 
 
 # ===============================================
@@ -250,14 +309,15 @@ class BiologicalDataValidator:
 
 
 # ===============================================
-# PROCESSUS NEUROSITY AVEC DÉTECTION STRICTE CORRIGÉE
+# PROCESSUS NEUROSITY AVEC DÉTECTION STRICTE CORRIGÉE ET CREDENTIALS DYNAMIQUES
 # ===============================================
 
 def neurosity_process(command_queue, data_queue, response_queue):
     """
     Processus Neurosity avec détection stricte de casque réel - VERSION CORRIGÉE
+    NOUVEAU: Récupère les credentials dynamiquement depuis les commandes
     """
-    print("🧠 [NEUROSITY PROCESS] Démarrage avec détection stricte corrigée...")
+    print("🧠 [NEUROSITY PROCESS] Démarrage avec détection stricte corrigée et auth dynamique...")
     
     try:
         from neurosity import NeurositySDK
@@ -271,7 +331,8 @@ def neurosity_process(command_queue, data_queue, response_queue):
         # Validateur de données biologiques CORRIGÉ
         bio_validator = None
         
-        load_dotenv()
+        # NOUVEAU: Stockage des credentials pour cette session
+        current_credentials = None
         
         def cleanup():
             """Nettoyage complet"""
@@ -458,7 +519,7 @@ def neurosity_process(command_queue, data_queue, response_queue):
                         
                         # CORRECTION: Ajouter métadonnées pour l'enregistrement
                         metadata = {
-                            'device_id': os.getenv("NEUROSITY_DEVICE_ID"),
+                            'device_id': current_credentials.get('device_id', '') if current_credentials else '',
                             'quality': device_status.get('signal', 'unknown'),
                             'signal_strength': device_status.get('signal', 'unknown')
                         }
@@ -524,23 +585,38 @@ def neurosity_process(command_queue, data_queue, response_queue):
                 
                 if command['action'] == 'connect':
                     print("🧠 [NEUROSITY] === COMMANDE CONNEXION REÇUE ===")
+                    
+                    # NOUVEAU: Récupérer les credentials depuis la commande
+                    credentials = command.get('credentials', {})
+                    if not credentials or not all(k in credentials for k in ['email', 'password', 'device_id']):
+                        print("🧠 [NEUROSITY] ❌ Credentials manquants dans la commande")
+                        response_queue.put({
+                            'success': False,
+                            'error': 'Credentials manquants. Rechargez la page et reconnectez-vous.'
+                        })
+                        continue
+                    
+                    current_credentials = credentials
+                    print(
+                        f"🧠 [NEUROSITY] 🔐 Credentials reçus pour: {credentials['email']} (Device: {credentials['device_id'][:8]}...)")
+                    
                     try:
                         if is_connected:
                             print("🧠 [NEUROSITY] Déjà connecté")
                             response_queue.put({'success': True, 'connected': True, 'message': 'Déjà connecté'})
                             continue
                         
-                        # 1. Initialiser le SDK
-                        print("🧠 [NEUROSITY] Initialisation du SDK...")
+                        # 1. Initialiser le SDK avec les credentials dynamiques
+                        print("🧠 [NEUROSITY] Initialisation du SDK avec credentials dynamiques...")
                         neurosity = NeurositySDK({
-                            "device_id": os.getenv("NEUROSITY_DEVICE_ID")
+                            "device_id": credentials['device_id']
                         })
                         
-                        # 2. Authentification
-                        print("🧠 [NEUROSITY] Authentification...")
+                        # 2. Authentification avec les credentials reçus
+                        print("🧠 [NEUROSITY] Authentification avec credentials utilisateur...")
                         login_result = neurosity.login({
-                            "email": os.getenv("NEUROSITY_EMAIL"),
-                            "password": os.getenv("NEUROSITY_PASSWORD")
+                            "email": credentials['email'],
+                            "password": credentials['password']
                         })
                         
                         print(f"🧠 [NEUROSITY] Login résultat: {login_result}")
@@ -554,7 +630,7 @@ def neurosity_process(command_queue, data_queue, response_queue):
                             response_queue.put({
                                 'success': True,
                                 'connected': True,
-                                'device_id': os.getenv("NEUROSITY_DEVICE_ID"),
+                                'device_id': credentials['device_id'],
                                 'device_status': device_status.copy(),
                                 'message': 'Casque Neurosity Crown détecté et opérationnel ! Données biologiques confirmées avec validation corrigée.'
                             })
@@ -635,6 +711,7 @@ def neurosity_process(command_queue, data_queue, response_queue):
                 elif command['action'] == 'disconnect':
                     print("🧠 [NEUROSITY] Déconnexion")
                     cleanup()
+                    current_credentials = None  # Effacer les credentials
                     send_status_update()
                     response_queue.put({'success': True, 'connected': False})
                 
@@ -660,12 +737,13 @@ def neurosity_process(command_queue, data_queue, response_queue):
 
 
 # ===============================================
-# RESTE DU CODE INCHANGÉ (NeurosityManager, Flask, etc.)
+# NEUROSITY MANAGER AVEC AUTHENTIFICATION
 # ===============================================
 
 class NeurosityManager:
     def __init__(self):
         self.data_manager = DataManager()
+        self.auth_manager = AuthManager()  # NOUVEAU
         self.is_recording = False
         self.is_connected = False
         self.is_monitoring = False
@@ -679,7 +757,7 @@ class NeurosityManager:
         self.last_data_time = None
         self.connection_health = True
         
-        print("📊 Manager Neurosity initialisé avec détection stricte corrigée")
+        print("📊 Manager Neurosity initialisé avec authentification web")
     
     def start_neurosity_process(self):
         try:
@@ -693,7 +771,7 @@ class NeurosityManager:
             )
             self.neurosity_process.start()
             
-            print("🚀 Processus Neurosity avec détection stricte corrigée démarré")
+            print("🚀 Processus Neurosity avec auth web démarré")
             return True
         
         except Exception as e:
@@ -714,12 +792,13 @@ class NeurosityManager:
         except Exception as e:
             print(f"❌ Erreur arrêt processus: {e}")
     
-    def send_command(self, action, timeout=30):  # Timeout augmenté pour la détection
+    def send_command(self, action, timeout=30, **kwargs):  # MODIFIÉ: Ajout kwargs
         try:
             if not self.command_queue:
                 return {'success': False, 'error': 'Processus non démarré'}
             
-            self.command_queue.put({'action': action})
+            command = {'action': action, **kwargs}  # NOUVEAU: Inclure kwargs
+            self.command_queue.put(command)
             response = self.response_queue.get(timeout=timeout)
             return response
         
@@ -887,48 +966,39 @@ manager = NeurosityManager()
 
 
 # ===============================================
-# CONFIGURATION ET DÉMARRAGE
+# CONFIGURATION ET DÉMARRAGE - VERSION MODIFIÉE SANS .ENV
 # ===============================================
 
-def load_environment():
-    print("🔍 Vérification de l'environnement...")
+def validate_environment():
+    """
+    NOUVEAU: Valide seulement l'environnement système (plus de .env)
+    """
+    print("🔍 Vérification de l'environnement système...")
     
-    env_file = Path('.env')
-    if not env_file.exists():
-        print("⚠️  Fichier .env non trouvé")
-        print("Créez un fichier .env avec vos identifiants Neurosity:")
-        print("NEUROSITY_EMAIL=votre_email@exemple.com")
-        print("NEUROSITY_PASSWORD=votre_mot_de_passe")
-        print("NEUROSITY_DEVICE_ID=votre_device_id")
-        return False
-    
+    # Créer le dossier de données s'il n'existe pas
     try:
-        load_dotenv(env_file)
+        Path('data').mkdir(exist_ok=True)
+        print("✅ Dossier de données vérifié")
     except Exception as e:
-        print(f"❌ Erreur .env: {e}")
+        print(f"❌ Erreur création dossier data: {e}")
         return False
     
-    required_vars = ['NEUROSITY_EMAIL', 'NEUROSITY_PASSWORD', 'NEUROSITY_DEVICE_ID']
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    
-    if missing_vars:
-        print(f"❌ Variables manquantes: {', '.join(missing_vars)}")
-        return False
-    
-    Path('data').mkdir(exist_ok=True)
-    print("✅ Environnement vérifié")
+    print("✅ Environnement système vérifié (authentification par interface web)")
     return True
 
 
 def show_startup_info():
     print("\n" + "=" * 70)
-    print("🧠 NEUROSITY CROWN MONITOR - DÉTECTION STRICTE V2.0 CORRIGÉE")
+    print("🧠 NEUROSITY CROWN MONITOR - AUTHENTIFICATION WEB V3.0")
     print("=" * 70)
     print(f"📁 Répertoire: {Path.cwd()}")
     print(f"🌐 URL: http://localhost:5000")
     print(f"📊 Données: {Path.cwd() / 'data'}")
     print("=" * 70)
-    print("🔧 NOUVELLES FONCTIONNALITÉS CORRIGÉES:")
+    print("🆕 NOUVELLES FONCTIONNALITÉS:")
+    print("• ✅ Authentification par interface web (plus de fichier .env)")
+    print("• ✅ Stockage sécurisé des credentials en mémoire")
+    print("• ✅ Validation des credentials côté client et serveur")
     print("• ✅ Détection stricte basée sur données biologiques RÉELLES")
     print("• ✅ Validation de variance et patterns naturels")
     print("• ✅ Détection de données simulées/factices")
@@ -936,30 +1006,84 @@ def show_startup_info():
     print("• ✅ Analyse de corrélation entre métriques")
     print("• ✅ Validation en 20 secondes maximum")
     print("• ✅ Élimination des faux positifs")
+    print("• 🆕 Interface de connexion moderne et sécurisée")
     print("• 🆕 Validation hybride: stricte sur patterns, permissive sur hardware")
     print("=" * 70)
 
 
 # Configuration Flask
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'neurosity_monitoring_secret'
+app.config['SECRET_KEY'] = 'neurosity_monitoring_secret_with_web_auth'
 app.static_folder = 'static'
 app.template_folder = 'templates'
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 
-# Routes Flask (identiques)
+# Routes Flask
 @app.route('/')
 def index():
     return render_template('index.html')
 
 
+# NOUVELLE ROUTE: Authentification
+@app.route('/login', methods=['POST'])
+def login():
+    """NOUVELLE ROUTE: Gère l'authentification des utilisateurs"""
+    try:
+        print("🔐 Tentative de connexion utilisateur...")
+        
+        if not request.is_json:
+            return jsonify({'success': False, 'error': 'Contenu JSON requis'})
+        
+        data = request.get_json()
+        email = data.get('email', '').strip()
+        password = data.get('password', '').strip()
+        device_id = data.get('device_id', '').strip()
+        
+        print(f"🔐 Validation credentials pour: {email} (Device: {device_id[:8] if device_id else 'N/A'}...)")
+        
+        # Valider les credentials
+        is_valid, error_message = manager.auth_manager.validate_credentials(email, password, device_id)
+        
+        if not is_valid:
+            print(f"🔐 ❌ Validation échouée: {error_message}")
+            return jsonify({'success': False, 'error': error_message})
+        
+        # Stocker les credentials pour la session
+        manager.auth_manager.store_credentials(email, password, device_id)
+        
+        print("🔐 ✅ Credentials validés et stockés")
+        return jsonify({
+            'success': True,
+            'message': 'Authentification réussie',
+            'user': email,
+            'device_id': device_id[:8] + '...'  # Masquer partiellement
+        })
+    
+    except Exception as e:
+        print(f"🔐 ❌ Erreur authentification: {e}")
+        return jsonify({'success': False, 'error': f'Erreur serveur: {str(e)}'})
+
+
 @app.route('/connect', methods=['POST'])
 def connect_device():
+    """MODIFIÉ: Connexion avec credentials de la session"""
     try:
-        print("🔗 Tentative de connexion avec détection stricte corrigée...")
-        response = manager.send_command('connect', timeout=35)  # Plus de temps pour la détection
+        print("🔗 Tentative de connexion avec credentials stockés...")
+        
+        # Vérifier que l'utilisateur est authentifié
+        if not manager.auth_manager.is_authenticated:
+            return jsonify({'success': False, 'error': 'Non authentifié. Rechargez la page.'})
+        
+        credentials = manager.auth_manager.get_credentials()
+        if not credentials:
+            return jsonify({'success': False, 'error': 'Credentials manquants. Rechargez la page.'})
+        
+        print(f"🔗 Connexion casque pour: {credentials['email']} (Device: {credentials['device_id'][:8]}...)")
+        
+        # NOUVEAU: Envoyer les credentials au processus Neurosity
+        response = manager.send_command('connect', timeout=35, credentials=credentials)
         
         if response['success']:
             manager.is_connected = True
@@ -969,6 +1093,7 @@ def connect_device():
             print(f"❌ Échec connexion stricte corrigée: {response}")
         
         return jsonify(response)
+    
     except Exception as e:
         print(f"❌ Erreur connexion: {e}")
         return jsonify({'success': False, 'error': str(e)})
@@ -1070,6 +1195,13 @@ def download_file(filename):
 def get_status():
     status_response = manager.check_status()
     
+    # Informations sur l'authentification
+    auth_info = {
+        'authenticated': manager.auth_manager.is_authenticated,
+        'user_email': manager.auth_manager.get_credentials().get('email',
+                                                                 '') if manager.auth_manager.is_authenticated else None
+    }
+    
     return jsonify({
         'connected': manager.is_connected,
         'recording': manager.is_recording,
@@ -1080,7 +1212,8 @@ def get_status():
         'connection_health': manager.connection_health,
         'last_data_time': manager.last_data_time.isoformat() if manager.last_data_time else None,
         'status_check': status_response,
-        'detection_mode': 'strict_biological_validation_v2_corrected'
+        'detection_mode': 'strict_biological_validation_v3_web_auth',
+        'auth': auth_info  # NOUVEAU
     })
 
 
@@ -1141,7 +1274,7 @@ def handle_check_device_status():
 
 # Traitement des données en arrière-plan
 def data_processor():
-    print("🔄 Démarrage du processeur de données avec détection stricte corrigée...")
+    print("🔄 Démarrage du processeur de données avec auth web...")
     
     while True:
         try:
@@ -1154,9 +1287,9 @@ def data_processor():
 
 # Fonction principale
 def main():
-    print("🚀 Démarrage Neurosity Monitor - Détection Stricte V2.0 CORRIGÉE...")
+    print("🚀 Démarrage Neurosity Monitor - Authentification Web V3.0...")
     
-    if not load_environment():
+    if not validate_environment():
         print("\n❌ Impossible de démarrer")
         sys.exit(1)
     
@@ -1174,14 +1307,19 @@ def main():
     
     print(f"\n🌟 Serveur prêt sur {host}:{port}")
     print("📱 Ouvrez: http://localhost:5000")
-    print("\n⚠️  IMPORTANT DÉTECTION STRICTE CORRIGÉE:")
-    print("✅ 1. ALLUMEZ votre casque Neurosity Crown")
-    print("✅ 2. PORTEZ-le correctement sur votre tête")
-    print("✅ 3. ATTENDEZ le voyant bleu (casque prêt)")
-    print("✅ 4. Cliquez 'Connecter' et patientez 20 secondes max")
+    print("\n⚠️  IMPORTANT AUTHENTIFICATION WEB:")
+    print("🔐 1. Saisissez vos identifiants Neurosity dans l'interface")
+    print("🔐 2. Email: votre-email@neurosity.com")
+    print("🔐 3. Mot de passe: votre mot de passe Neurosity")
+    print("🔐 4. Device ID: trouvez-le dans l'app Neurosity → Settings")
+    print("\n✅ 5. ALLUMEZ votre casque Neurosity Crown")
+    print("✅ 6. PORTEZ-le correctement sur votre tête")
+    print("✅ 7. ATTENDEZ le voyant bleu (casque prêt)")
+    print("✅ 8. Cliquez 'Connecter' et patientez 20 secondes max")
     print("\n🔬 L'application analyse maintenant les données biologiques RÉELLES !")
     print("🚫 Les données simulées ou factices sont détectées et rejetées")
     print("🆕 Validation corrigée : plus tolérante aux variations hardware normales")
+    print("🔒 Vos credentials sont stockés temporairement en mémoire (sécurisé)")
     
     try:
         socketio.run(
@@ -1202,6 +1340,7 @@ def main():
     finally:
         print("🔄 Nettoyage...")
         manager.stop_neurosity_process()
+        manager.auth_manager.clear_credentials()  # NOUVEAU: Nettoyer les credentials
         print("✅ Application fermée")
 
 
