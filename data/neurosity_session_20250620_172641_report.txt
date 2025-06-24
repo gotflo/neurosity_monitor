@@ -1,0 +1,19 @@
+=== RAPPORT DE SESSION NEUROSITY ===
+Session: neurosity_session_20250620_172641
+Début: 2025-06-20 17:26:41
+Fin: 2025-06-20 17:26:47
+Durée: 5.6 secondes (0.1 minutes)
+Points de données: 12
+
+CALME (6 mesures):
+  Moyenne: 30.4%
+  Maximum: 33.3%
+  Minimum: 27.1%
+
+CONCENTRATION (6 mesures):
+  Moyenne: 36.1%
+  Maximum: 50.2%
+  Minimum: 21.5%
+
+ONDES CÉRÉBRALES:
+  Aucune donnée d'ondes cérébrales collectée

@@ -1,0 +1,18 @@
+=== RAPPORT DE SESSION NEUROSITY ===
+Session: neurosity_session_20250621_215303
+Date: 2025-06-21 21:53:10
+Durée: 6.8 secondes
+Points de données: 41
+
+CALM:
+  Moyenne: 43.2%
+  Min: 33.1%
+  Max: 53.5%
+  Mesures: 7
+
+FOCUS:
+  Moyenne: 56.3%
+  Min: 49.2%
+  Max: 67.0%
+  Mesures: 7
+

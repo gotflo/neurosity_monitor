@@ -1,1905 +1,1057 @@
 /**
- * APPLICATION NEUROSITY MONITOR - FICHIER COMPLET UNIFIÉ
- * Interface utilisateur adaptée à la détection biologique réelle
- * Avec Sessions Manager optimisé pour milliers de fichiers
- * Classes CSS préfixées avec "neuro_"
+ * NEUROSITY MONITOR - APPLICATION JAVASCRIPT OPTIMISÉE
  */
 
-// État global de l'application
-window.AppState = {
+// ===============================================
+// CONFIGURATION ET ÉTAT GLOBAL
+// ===============================================
+
+const NeuroApp = {
+  state: {
     isConnected: false,
     isRecording: false,
     isMonitoring: false,
-    socket: null,
-    chart: null,
     deviceStatus: {
-        online: false,
-        battery: 'unknown',
-        signal: 'disconnected',
-        validation: 'pending'
+      online: false,
+      battery: 'unknown',
+      charging: false,
+      signal: 'disconnected'
     },
-    connectionHealth: true,
-    lastDataTime: null,
-    detectionInProgress: false,
-    debugMode: false
-};
-
-// Variables globales centralisées (migré depuis le HTML)
-window.AppUtils = {
-    isInitialized: false,
-    viewport: { width: 0, height: 0, isMobile: false, isTablet: false }
-};
-
-// Variables globales pour le statut de la navbar (gardées pour compatibilité)
-window.NavbarState = {
-    connected: false,
-    recording: false,
-    monitoring: false,
-    deviceOnline: false
+    sessions: [],
+    charts: {
+      brainwaves: null,
+      eegRaw: null
+    }
+  },
+  config: {
+    toastDuration: 4000,
+    chartUpdateAnimation: 100
+  }
 };
 
 // ===============================================
-// NOUVEAU: SESSIONS MANAGER OPTIMISÉ (adapté aux nouvelles classes)
+// GESTIONNAIRE DE WEBSOCKET
 // ===============================================
 
-window.SessionsManager = {
-    allSessions: [],
-    visibleSessions: [],
-    currentPage: 0,
-    itemsPerPage: 50, // Afficher 50 sessions à la fois
-    isVirtualizationEnabled: false,
-    scrollContainer: null,
+const SocketManager = {
+  socket: null,
 
-    init() {
-        this.scrollContainer = document.querySelector('.neuro_sessions-scroll-container');
-        if (this.scrollContainer) {
-            this.setupScrollHandlers();
-        }
-    },
+  init() {
+    console.log('Initialisation WebSocket...');
 
-    setupScrollHandlers() {
-        if (!this.scrollContainer) return;
-
-        // Détection du scroll pour lazy loading
-        this.scrollContainer.addEventListener('scroll', this.throttle(() => {
-            this.handleScroll();
-            this.updateScrollIndicators();
-        }, 100));
-
-        // Observer pour détecter les changements de contenu
-        const observer = new MutationObserver(() => {
-            this.updateScrollIndicators();
-        });
-
-        observer.observe(this.scrollContainer, {
-            childList: true,
-            subtree: true
-        });
-    },
-
-    updateScrollIndicators() {
-        if (!this.scrollContainer) return;
-
-        const { scrollTop, scrollHeight, clientHeight } = this.scrollContainer;
-        const hasScroll = scrollHeight > clientHeight;
-
-        if (hasScroll) {
-            this.scrollContainer.classList.add('neuro_has-scroll');
-        } else {
-            this.scrollContainer.classList.remove('neuro_has-scroll');
-        }
-
-        // Ajouter classe pour optimiser les performances avec beaucoup d'éléments
-        if (this.allSessions.length > 100) {
-            this.scrollContainer.classList.add('neuro_many-sessions');
-        } else {
-            this.scrollContainer.classList.remove('neuro_many-sessions');
-        }
-    },
-
-    handleScroll() {
-        if (!this.isVirtualizationEnabled || !this.scrollContainer) return;
-
-        const { scrollTop, scrollHeight, clientHeight } = this.scrollContainer;
-        const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
-
-        // Charger plus d'éléments quand on approche de la fin
-        if (scrollPercentage > 0.8 && this.hasMoreSessions()) {
-            this.loadMoreSessions();
-        }
-    },
-
-    hasMoreSessions() {
-        return (this.currentPage + 1) * this.itemsPerPage < this.allSessions.length;
-    },
-
-    loadMoreSessions() {
-        if (!this.hasMoreSessions()) return;
-
-        this.currentPage++;
-        const startIndex = this.currentPage * this.itemsPerPage;
-        const endIndex = Math.min(startIndex + this.itemsPerPage, this.allSessions.length);
-
-        const newSessions = this.allSessions.slice(startIndex, endIndex);
-        this.visibleSessions.push(...newSessions);
-
-        this.appendSessionsToDOM(newSessions);
-
-        // Notification discrète
-        if (window.showToast) {
-            window.showToast(
-                `📄 ${newSessions.length} sessions supplémentaires chargées`,
-                'info',
-                2000
-            );
-        }
-    },
-
-    appendSessionsToDOM(sessions) {
-        const sessionsList = document.getElementById('sessionsList');
-        if (!sessionsList) return;
-
-        const fragment = document.createDocumentFragment();
-
-        sessions.forEach((session, index) => {
-            const sessionElement = this.createSessionElement(session, this.visibleSessions.length - sessions.length + index);
-            fragment.appendChild(sessionElement);
-        });
-
-        sessionsList.appendChild(fragment);
-    },
-
-    createSessionElement(session, index) {
-        const sessionItem = document.createElement('div');
-        sessionItem.className = 'neuro_session-item';
-        sessionItem.style.animationDelay = `${(index % 10) * 0.05}s`; // Animation échelonnée par groupes de 10
-
-        const dateMatch = session.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
-        let displayDate = 'Session';
-        let displayTime = '';
-
-        if (dateMatch) {
-            const [, year, month, day, hour, minute, second] = dateMatch;
-            displayDate = `${day}/${month}/${year}`;
-            displayTime = `${hour}:${minute}`;
-        }
-
-        sessionItem.innerHTML = `
-            <div class="neuro_session-info">
-                <div class="neuro_session-name">
-                    ${session} 
-                    <span style="color: #8b5cf6; font-size: 0.875rem;">✓</span>
-                </div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <span>📅 ${displayDate}</span>
-                    <span>🕒 ${displayTime}</span>
-                    <span style="color: #8b5cf6;">🔬 Données biologiques validées</span>
-                </div>
-            </div>
-            <div class="neuro_session-actions">
-                <button class="neuro_btn neuro_btn-outline neuro_btn-small" onclick="downloadSession('${session}')" title="Télécharger CSV validé">
-                    <span>⬇️</span> CSV
-                </button>
-            </div>
-        `;
-
-        return sessionItem;
-    },
-
-    // Fonction throttle pour optimiser les performances
-    throttle(func, limit) {
-        let lastFunc;
-        let lastRan;
-        return function() {
-            const context = this;
-            const args = arguments;
-            if (!lastRan) {
-                func.apply(context, args);
-                lastRan = Date.now();
-            } else {
-                clearTimeout(lastFunc);
-                lastFunc = setTimeout(function() {
-                    if ((Date.now() - lastRan) >= limit) {
-                        func.apply(context, args);
-                        lastRan = Date.now();
-                    }
-                }, limit - (Date.now() - lastRan));
-            }
-        }
-    }
-};
-
-/**
- * Initialisation centralisée (migré depuis le HTML)
- */
-function initializeBaseComponents() {
-    if (window.AppUtils.isInitialized) return;
-
-    console.log('🎨 Initialisation des composants de base...');
-
-    // Cacher le loader après un délai
-    setTimeout(hideInitialLoader, 1000);
-
-    // Initialiser l'horloge
-    initializeClock();
-
-    // Gestion responsive
-    initializeResponsive();
-
-    // Améliorer l'accessibilité
-    initializeAccessibility();
-
-    // Gestion des erreurs globales
-    initializeErrorHandling();
-
-    // Performance monitoring
-    initializePerformanceMonitoring();
-
-    // Détection de la connexion réseau
-    initializeNetworkDetection();
-
-    window.AppUtils.isInitialized = true;
-    console.log('✅ Composants de base initialisés');
-}
-
-/**
- * Gestion du loader améliorée (migré depuis le HTML)
- */
-function hideInitialLoader() {
-    const loader = document.getElementById('initialLoader');
-    const body = document.body;
-
-    if (loader) {
-        loader.classList.add('neuro_hidden');
-        setTimeout(() => {
-            if (loader.parentNode) {
-                loader.parentNode.removeChild(loader);
-            }
-        }, 500);
-    }
-
-    body.classList.add('neuro_loaded');
-}
-
-/**
- * Horloge optimisée (migré depuis le HTML)
- */
-function initializeClock() {
-    const timeElement = document.getElementById('currentTime');
-    if (!timeElement) return;
-
-    function updateClock() {
-        try {
-            const now = new Date();
-            timeElement.textContent = now.toLocaleTimeString('fr-FR');
-        } catch (e) {
-            console.warn('Erreur mise à jour horloge:', e);
-        }
-    }
-
-    updateClock();
-    setInterval(updateClock, 1000);
-}
-
-/**
- * Gestion responsive centralisée (migré depuis le HTML)
- */
-function initializeResponsive() {
-    function updateViewport() {
-        const viewport = {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            isMobile: window.innerWidth < 768,
-            isTablet: window.innerWidth >= 768 && window.innerWidth < 1024
-        };
-
-        window.AppUtils.viewport = viewport;
-
-        // CSS custom properties
-        document.documentElement.style.setProperty('--vh', `${viewport.height * 0.01}px`);
-
-        // Émettre un événement pour les autres composants
-        window.dispatchEvent(new CustomEvent('viewportChange', { detail: viewport }));
-    }
-
-    window.addEventListener('resize', updateViewport);
-    window.addEventListener('orientationchange', updateViewport);
-    updateViewport(); // Appel initial
-}
-
-/**
- * Accessibilité améliorée (migré depuis le HTML)
- */
-function initializeAccessibility() {
-    // Navigation au clavier
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-            document.body.classList.add('neuro_keyboard-navigation');
-        }
+    this.socket = io({
+      transports: ['polling', 'websocket'],
+      timeout: 30000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000
     });
 
-    document.addEventListener('mousedown', function() {
-        document.body.classList.remove('neuro_keyboard-navigation');
+    this.setupEventHandlers();
+  },
+
+  setupEventHandlers() {
+    // Connexion
+    this.socket.on('connect', () => {
+      console.log('WebSocket connecté');
+      UI.showToast('Connexion WebSocket établie', 'success', 3000);
     });
 
-    // Raccourcis clavier globaux
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey || e.metaKey) {
-            switch(e.key) {
-                case 'k':
-                    e.preventDefault();
-                    if (window.connectDevice) connectDevice();
-                    break;
-                case 'r':
-                    e.preventDefault();
-                    if (window.toggleRecording) toggleRecording();
-                    break;
-            }
-        }
-    });
-}
-
-/**
- * Gestion d'erreurs centralisée (migré depuis le HTML)
- */
-function initializeErrorHandling() {
-    window.addEventListener('error', function(e) {
-        console.error('Erreur globale:', e.error);
-        if (window.showToast) {
-            showToast('❌ Une erreur est survenue', 'error');
-        }
+    this.socket.on('disconnect', () => {
+      console.log('WebSocket déconnecté');
+      UI.showToast('🔌 Connexion WebSocket perdue', 'warning', 3000);
     });
 
-    // Promesses non gérées
-    window.addEventListener('unhandledrejection', function(e) {
-        console.error('Promise rejetée:', e.reason);
-        if (window.showToast) {
-            showToast('❌ Erreur asynchrone', 'error');
-        }
-    });
-}
+    // Données temps réel
+    this.socket.on('calm_data', (data) => DataHandler.handleMetricData('calm', data));
+    this.socket.on('focus_data', (data) => DataHandler.handleMetricData('focus', data));
+    this.socket.on('brainwaves_data', (data) => DataHandler.handleBrainwavesData(data));
+    this.socket.on('signal_quality_data', (data) => DataHandler.handleSignalQualityData(data));
+    this.socket.on('brainwaves_raw_data', (data) => DataHandler.handleBrainwavesRawData(data));
+    this.socket.on('battery_data', (data) => UI.updateBatteryStatus(data));
 
-/**
- * Monitoring de performance optimisé (migré depuis le HTML)
- */
-function initializePerformanceMonitoring() {
-    if (!('performance' in window)) return;
-
-    window.addEventListener('load', function() {
-        setTimeout(() => {
-            try {
-                const perfData = performance.getEntriesByType('navigation')[0];
-                if (perfData) {
-                    const metrics = {
-                        loadTime: Math.round(perfData.loadEventEnd - perfData.fetchStart),
-                        domReady: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart)
-                    };
-                    console.log('⚡ Performance:', metrics);
-
-                    // Alerter si les performances sont dégradées
-                    if (metrics.loadTime > 5000) {
-                        console.warn('⚠️ Temps de chargement élevé:', metrics.loadTime + 'ms');
-                    }
-                }
-            } catch (e) {
-                console.warn('Erreur monitoring performance:', e);
-            }
-        }, 100);
-    });
-}
-
-/**
- * Détection réseau améliorée (migré depuis le HTML)
- */
-function initializeNetworkDetection() {
-    function updateNetworkStatus() {
-        const isOnline = navigator.onLine;
-        document.body.classList.toggle('neuro_offline', !isOnline);
-
-        if (window.showToast) {
-            if (isOnline) {
-                showToast('🌐 Connexion rétablie', 'success', 2000);
-            } else {
-                showToast('📱 Mode hors ligne', 'warning', 5000);
-            }
-        }
-    }
-
-    window.addEventListener('online', updateNetworkStatus);
-    window.addEventListener('offline', updateNetworkStatus);
-}
-
-/**
- * Intersection Observer pour les animations d'entrée (migré depuis le HTML)
- */
-function initializeIntersectionObserver() {
-    if (!('IntersectionObserver' in window)) return;
-
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('neuro_in-view');
-            }
-        });
-    }, {
-        threshold: 0.1,
-        rootMargin: '50px'
+    // Statuts
+    this.socket.on('status', (data) => {
+      UI.updateConnectionStatus(data.connected, data.recording, data.monitoring);
+      if (data.device_status) {
+        UI.updateDeviceStatus(data.device_status);
+      }
     });
 
-    // Observer les éléments après un délai pour éviter la surcharge
-    setTimeout(() => {
-        document.querySelectorAll('.neuro_card, .neuro_metric-card, .neuro_chart-card').forEach(element => {
-            observer.observe(element);
-        });
-    }, 500);
-}
+    this.socket.on('monitoring_started', () => {
+      UI.showToast('Monitoring démarré !', 'success');
+      NeuroApp.state.isMonitoring = true;
+      UI.updateMonitoringStatus(true);
+    });
 
-/**
- * Fonction simplifiée pour la gestion responsive (migré depuis le HTML)
- */
-function handleNavbarResize() {
-    const navControls = document.querySelector('.neuro_nav-controls');
-    const isMobile = window.innerWidth < 768;
-    const isSmallMobile = window.innerWidth < 480;
+    this.socket.on('monitoring_stopped', () => {
+      UI.showToast('Monitoring arrêté', 'info');
+      NeuroApp.state.isMonitoring = false;
+      UI.updateMonitoringStatus(false);
+    });
 
-    if (navControls) {
-        if (isSmallMobile) {
-            // Cacher le texte des boutons sur très petits écrans
-            document.querySelectorAll('.neuro_btn-text').forEach(text => {
-                text.style.display = 'none';
-            });
-        } else {
-            // Afficher le texte des boutons
-            document.querySelectorAll('.neuro_btn-text').forEach(text => {
-                text.style.display = 'inline';
-            });
-        }
-    }
-}
+    // Erreurs
+    this.socket.on('error', (data) => {
+      UI.showToast(`❌ Erreur: ${data.message}`, 'error');
+    });
+  },
 
-/**
- * Fonction d'actualisation spécifique à cette page (migré depuis le HTML)
- */
-function refreshSessions() {
-    const refreshBtn = document.querySelector('.neuro_sessions-refresh-btn');
-    if (!refreshBtn) return;
-
-    const originalText = refreshBtn.innerHTML;
-    const iconSpan = refreshBtn.querySelector('span:first-child');
-
-    // Animation du bouton
-    if (iconSpan) {
-        iconSpan.style.animation = 'neuro_spin 1s linear infinite';
-    }
-    refreshBtn.innerHTML = '<span style="animation: neuro_spin 1s linear infinite;">🔄</span> <span class="neuro_btn-text">Actualisation...</span>';
-    refreshBtn.disabled = true;
-
-    if (window.showToast) {
-        showToast('🔄 Actualisation des sessions...', 'info', 2000);
-    }
-
-    // Appeler la fonction globale loadSessions
-    if (window.loadSessions) {
-        window.loadSessions().finally(() => {
-            setTimeout(() => {
-                refreshBtn.innerHTML = originalText;
-                refreshBtn.disabled = false;
-                if (iconSpan) {
-                    iconSpan.style.animation = '';
-                }
-            }, 1000);
-        });
+  emit(event, data) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit(event, data);
     } else {
-        // Fallback si loadSessions n'est pas disponible
-        setTimeout(() => {
-            refreshBtn.innerHTML = originalText;
-            refreshBtn.disabled = false;
-        }, 1000);
+      console.warn('Socket non connecté');
     }
+  }
+};
+
+// ===============================================
+// GESTIONNAIRE DE DONNÉES
+// ===============================================
+
+const DataHandler = {
+  handleMetricData(type, data) {
+    if (!NeuroApp.state.isConnected) return;
+
+    UI.updateCircularProgress(type, data[type], data.timestamp);
+    UI.flashIndicator(type);
+  },
+
+  handleBrainwavesData(data) {
+    if (!NeuroApp.state.isConnected || !NeuroApp.state.charts.brainwaves) return;
+
+    const powerData = ['delta', 'theta', 'alpha', 'beta', 'gamma'].map(
+      wave => Math.min(data[wave] || 0, 20)
+    );
+
+    NeuroApp.state.charts.brainwaves.data.datasets[0].data = powerData;
+    NeuroApp.state.charts.brainwaves.update('none');
+
+    document.getElementById('brainwavesTimestamp').textContent =
+      'Dernière mise à jour: ' + Utils.formatTimestamp(data.timestamp);
+
+    UI.flashIndicator('brainwaves');
+  },
+
+  handleSignalQualityData(data) {
+    if (!NeuroApp.state.isConnected) return;
+
+    ['F5', 'F6', 'C3', 'C4', 'CP3', 'CP4', 'PO3', 'PO4'].forEach(electrode => {
+      if (data[electrode] !== undefined) {
+        UI.updateElectrodeQuality(electrode, data[electrode]);
+      }
+    });
+
+    UI.flashIndicator('signal_quality');
+  },
+
+  handleBrainwavesRawData(data) {
+    if (!NeuroApp.state.isConnected || !NeuroApp.state.charts.eegRaw) return;
+
+    NeuroApp.state.charts.eegRaw.updateData(data.raw_data, data.info);
+
+    document.getElementById('eegRawTimestamp').textContent =
+      'Dernière mise à jour: ' + Utils.formatTimestamp(data.timestamp);
+
+    UI.flashIndicator('eeg_raw');
+  }
+};
+
+// ===============================================
+// CLASSE POUR LE GRAPHIQUE EEG RAW
+// ===============================================
+
+class EEGRawChart {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.channelNames = ['CP3', 'C3', 'F5', 'PO3', 'PO4', 'F6', 'C4', 'CP4'];
+    this.colors = [
+      '#6366f1', '#0ea5e9', '#8b5cf6', '#a855f7',
+      '#f59e0b', '#06b6d4', '#3b82f6', '#1e293b'
+    ];
+
+    this.dataBuffer = [];
+    this.timeBuffer = [];
+    this.maxBufferSize = 256 * 4; // 4 secondes à 256Hz
+
+    this.amplitudeScale = 2;
+    this.margins = {
+      left: 60,
+      right: 50,
+      top: 30,
+      bottom: 40
+    };
+
+    this.gridColor = 'rgba(226, 232, 240, 0.5)';
+    this.gridTextColor = '#94a3b8';
+
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    this.canvas.width = rect.width * window.devicePixelRatio;
+    this.canvas.height = rect.height * window.devicePixelRatio;
+    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    this.width = rect.width;
+    this.height = rect.height;
+    this.plotWidth = this.width - this.margins.left - this.margins.right;
+    this.plotHeight = this.height - this.margins.top - this.margins.bottom;
+
+    this.draw();
+  }
+
+  updateData(rawData, info) {
+    if (rawData && rawData.length === 8) {
+      const timestamp = Date.now();
+      const numSamples = rawData[0].length;
+
+      for (let i = 0; i < numSamples; i++) {
+        const sample = rawData.map(ch => ch[i]);
+        this.dataBuffer.push(sample);
+        this.timeBuffer.push(timestamp + (i * 1000 / 256));
+      }
+
+      if (this.dataBuffer.length > this.maxBufferSize) {
+        const excess = this.dataBuffer.length - this.maxBufferSize;
+        this.dataBuffer = this.dataBuffer.slice(excess);
+        this.timeBuffer = this.timeBuffer.slice(excess);
+      }
+
+      this.draw();
+    }
+  }
+
+  draw() {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+    this.drawGrid();
+    this.drawChannelLabels();
+    this.drawTimeScale();
+
+    if (this.dataBuffer.length > 1) {
+      this.drawSignals();
+    }
+  }
+
+  drawGrid() {
+    this.ctx.strokeStyle = this.gridColor;
+    this.ctx.lineWidth = 1;
+
+    // Grilles horizontales et verticales
+    for (let ch = 0; ch < 8; ch++) {
+      const yBase = this.margins.top + (ch + 0.5) * (this.plotHeight / 8);
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.margins.left, yBase);
+      this.ctx.lineTo(this.width - this.margins.right, yBase);
+      this.ctx.stroke();
+    }
+
+    // Grille verticale (secondes)
+    const gridSpacing = this.plotWidth / 4;
+    for (let i = 0; i <= 4; i++) {
+      const x = this.margins.left + i * gridSpacing;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, this.margins.top);
+      this.ctx.lineTo(x, this.height - this.margins.bottom);
+      this.ctx.stroke();
+    }
+
+    // Cadre
+    this.ctx.strokeRect(this.margins.left, this.margins.top, this.plotWidth, this.plotHeight);
+  }
+
+  drawChannelLabels() {
+    this.ctx.font = '12px Inter';
+    this.ctx.textAlign = 'right';
+    this.ctx.textBaseline = 'middle';
+
+    for (let ch = 0; ch < 8; ch++) {
+      const yBase = this.margins.top + (ch + 0.5) * (this.plotHeight / 8);
+      this.ctx.fillStyle = this.colors[ch];
+      this.ctx.fillText(this.channelNames[ch], this.margins.left - 10, yBase);
+    }
+  }
+
+  drawTimeScale() {
+    this.ctx.font = '11px Inter';
+    this.ctx.fillStyle = this.gridTextColor;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'top';
+
+    for (let i = 0; i <= 4; i++) {
+      const x = this.margins.left + i * (this.plotWidth / 4);
+      this.ctx.fillText(`-${4 - i}s`, x, this.height - this.margins.bottom + 10);
+    }
+  }
+
+  drawSignals() {
+    const pixelsPerSample = this.plotWidth / this.dataBuffer.length;
+
+    for (let ch = 0; ch < 8; ch++) {
+      const yBase = this.margins.top + (ch + 0.5) * (this.plotHeight / 8);
+
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(
+        this.margins.left,
+        this.margins.top + ch * (this.plotHeight / 8),
+        this.plotWidth,
+        this.plotHeight / 8
+      );
+      this.ctx.clip();
+
+      this.ctx.strokeStyle = this.colors[ch];
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+
+      for (let i = 0; i < this.dataBuffer.length; i++) {
+        const x = this.margins.left + i * pixelsPerSample;
+        const y = yBase - (this.dataBuffer[i][ch] * this.amplitudeScale);
+
+        if (i === 0) {
+          this.ctx.moveTo(x, y);
+        } else {
+          this.ctx.lineTo(x, y);
+        }
+      }
+
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+  }
 }
 
-/**
- * Initialisation au chargement de la page
- */
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Démarrage Neurosity Monitor');
+// ===============================================
+// GESTIONNAIRE D'INTERFACE (UI)
+// ===============================================
 
-    // Initialisation centralisée
-    initializeBaseComponents();
-
-    initializeUI();
-    initializeCharts();
-    initializeWebSocket();
-    loadSessions();
-
-    // Initialiser le gestionnaire de sessions optimisé
-    window.SessionsManager.init();
-
-    // Gestion responsive initiale (migré depuis le HTML)
-    handleNavbarResize();
-
-    // Animation de chargement des éléments de la navbar (migré depuis le HTML)
-    const navElements = document.querySelectorAll('.neuro_nav-controls > *');
-    navElements.forEach((element, index) => {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(-10px)';
-
-        setTimeout(() => {
-            element.style.transition = 'all 0.3s ease';
-            element.style.opacity = '1';
-            element.style.transform = 'translateY(0)';
-        }, 100 * (index + 1));
-    });
-
-    // Animation d'entrée pour les éléments de cette page (migré depuis le HTML)
-    const cards = document.querySelectorAll('.neuro_dashboard-grid .neuro_card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-
-        setTimeout(() => {
-            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, 200 * (index + 1));
-    });
-
-    // Initialiser l'intersection observer
-    setTimeout(initializeIntersectionObserver, 1000);
-
-    showToast('🧠 Application prête ! Détection activée - Allumez votre casque Neurosity Crown puis cliquez "Connecter"', 'info', 8000);
-    console.log('✅ Application prête avec détection et Sessions Manager optimisé');
-});
-
-// Écouteurs d'événements pour la navbar (uniquement responsive) (migré depuis le HTML)
-window.addEventListener('resize', handleNavbarResize);
-window.addEventListener('orientationchange', handleNavbarResize);
-
-/**
- * Système de notifications Toast amélioré pour la détection
- */
-function showToast(message, type = 'info', duration = 4000) {
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-width: 450px;
-        `;
-        document.body.appendChild(toastContainer);
+const UI = {
+  showToast(message, type = 'info', duration = 4000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 450px;
+      `;
+      document.body.appendChild(container);
     }
-
-    const toast = document.createElement('div');
-    toast.className = `neuro_toast neuro_toast-${type}`;
-    toast.style.cssText = `
-        padding: 16px 22px;
-        border-radius: 12px;
-        color: white;
-        font-weight: 500;
-        font-size: 14px;
-        line-height: 1.4;
-        min-width: 350px;
-        box-shadow: 0 6px 25px rgba(0,0,0,0.15);
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(10px);
-    `;
 
     const colors = {
-        success: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
-        error: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
-        warning: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
-        info: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-        detection: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)'
+      success: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+      error: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
+      warning: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+      info: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
     };
 
-    toast.style.background = colors[type] || colors.info;
-
-    // Icônes spéciales pour la détection
     const icons = {
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        info: '💡',
-        detection: '🔬'
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      info: '💡'
     };
 
-    const icon = icons[type] || icons.info;
-
-    toast.innerHTML = `
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <div style="font-size: 18px; margin-top: 2px;">${icon}</div>
-            <div style="flex: 1; line-height: 1.4;">${message}</div>
-            <div style="cursor: pointer; opacity: 0.8; font-size: 18px; margin-left: 8px;">×</div>
-        </div>
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      padding: 16px 22px;
+      border-radius: 12px;
+      color: white;
+      font-weight: 500;
+      font-size: 14px;
+      line-height: 1.4;
+      min-width: 350px;
+      box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      background: ${colors[type] || colors.info};
     `;
 
-    toastContainer.appendChild(toast);
+    toast.innerHTML = `
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="font-size: 18px;">${icons[type] || icons.info}</div>
+        <div style="flex: 1;">${message}</div>
+        <div style="cursor: pointer; opacity: 0.8;" onclick="this.parentElement.parentElement.remove()">×</div>
+      </div>
+    `;
 
-    setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
-    }, 10);
-
-    const closeBtn = toast.querySelector('div:last-child');
-    closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        removeToast(toast);
-    });
-
-    toast.addEventListener('click', () => {
-        removeToast(toast);
-    });
+    container.appendChild(toast);
+    setTimeout(() => toast.style.transform = 'translateX(0)', 10);
 
     if (duration > 0) {
-        setTimeout(() => {
-            removeToast(toast);
-        }, duration);
-    }
-}
-
-function removeToast(toast) {
-    if (toast && toast.parentNode) {
+      setTimeout(() => {
         toast.style.transform = 'translateX(100%)';
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 300);
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
     }
-}
+  },
 
-/**
- * Initialise l'interface utilisateur
- */
-function initializeUI() {
-    console.log('🎨 Initialisation UI avec détection ...');
-    updateConnectionStatus(false, false, false);
+  updateConnectionStatus(connected, recording, monitoring) {
+    NeuroApp.state.isConnected = connected;
+    NeuroApp.state.isRecording = recording;
+    NeuroApp.state.isMonitoring = monitoring;
 
-    // Ajouter indicateur de détection stricte
-    addStrictDetectionIndicator();
-}
-
-/**
- * Ajoute un indicateur de mode détection
- */
-function addStrictDetectionIndicator() {
-    const navbar = document.querySelector('.neuro_navbar');
-    if (navbar && !document.getElementById('strictModeIndicator')) {
-        const indicator = document.createElement('div');
-        indicator.id = 'strictModeIndicator';
-        indicator.style.cssText = `
-            position: absolute;
-            top: -8px;
-            right: 20px;
-            background: linear-gradient(135deg, #8b5cf6, #a855f7);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
-        `;
-        indicator.textContent = '🔬 Détection';
-        navbar.appendChild(indicator);
-    }
-}
-
-/**
- * Initialise WebSocket avec gestion des nouveaux événements de détection
- */
-function initializeWebSocket() {
-    console.log('🔌 Initialisation WebSocket avec détection du casque...');
-
-    try {
-        window.AppState.socket = io({
-            transports: ['polling', 'websocket'],
-            timeout: 30000,  // Timeout plus long pour la détection
-            reconnection: true,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 2000
-        });
-
-        window.AppState.socket.on('connect', function() {
-            console.log('✅ WebSocket connecté');
-            showToast('🔌 Connexion WebSocket établie - Mode détection casque actif', 'success', 3000);
-        });
-
-        window.AppState.socket.on('disconnect', function() {
-            console.log('❌ WebSocket déconnecté');
-            showToast('🔌 Connexion WebSocket perdue', 'warning', 3000);
-        });
-
-        window.AppState.socket.on('connect_error', function(error) {
-            console.error('❌ Erreur WebSocket:', error);
-            showToast('❌ Erreur de connexion WebSocket', 'error');
-        });
-
-        // Données en temps réel
-        window.AppState.socket.on('calm_data', handleCalmData);
-        window.AppState.socket.on('focus_data', handleFocusData);
-        window.AppState.socket.on('brainwaves_data', handleBrainwavesData);
-
-        // Messages de statut
-        window.AppState.socket.on('status', function(data) {
-            updateConnectionStatus(data.connected, data.recording, data.monitoring);
-            if (data.device_status) {
-                updateDeviceStatus(data.device_status);
-            }
-        });
-
-        window.AppState.socket.on('status_update', function(data) {
-            updateConnectionStatus(data.connected, false, data.monitoring);
-            updateDeviceStatus(data.device_status);
-        });
-
-        window.AppState.socket.on('error', function(data) {
-            showToast('❌ ' + (data.message || 'Erreur WebSocket'), 'error');
-        });
-
-        window.AppState.socket.on('monitoring_started', function() {
-            showToast('🎯 Monitoring démarré ! Données biologiques validées en temps réel', 'success');
-            window.AppState.isMonitoring = true;
-            updateMonitoringStatus(true);
-            updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, true);
-        });
-
-        window.AppState.socket.on('monitoring_stopped', function() {
-            showToast('⏹️ Monitoring arrêté', 'info');
-            window.AppState.isMonitoring = false;
-            updateMonitoringStatus(false);
-            updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, false);
-        });
-
-        // Événements de surveillance de connexion
-        window.AppState.socket.on('connection_warning', function(data) {
-            showToast(`⚠️ ${data.message}`, 'warning', 8000);
-            window.AppState.connectionHealth = false;
-            updateConnectionHealth(false);
-        });
-
-        window.AppState.socket.on('connection_restored', function(data) {
-            showToast(`✅ ${data.message}`, 'success', 3000);
-            window.AppState.connectionHealth = true;
-            updateConnectionHealth(true);
-        });
-
-        window.AppState.socket.on('device_status_response', function(data) {
-            console.log('Statut dispositif:', data);
-            if (data.device_status) {
-                updateDeviceStatus(data.device_status);
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Erreur WebSocket:', error);
-        showToast('❌ Erreur de connexion WebSocket', 'error');
-    }
-}
-
-/**
- * Gestion dynamique du bouton de connexion
- */
-function updateConnectionButton(connected) {
-    const connectBtn = document.getElementById('connectBtn');
-    if (!connectBtn) return;
-
-    if (connected) {
-        connectBtn.innerHTML = '<span>🔌</span><span class="neuro_btn-text">Déconnecter</span>';
-        connectBtn.className = 'neuro_btn neuro_btn-danger';
-        connectBtn.onclick = disconnectDevice;
-        connectBtn.title = 'Déconnecter le casque Neurosity';
-    } else {
-        connectBtn.innerHTML = '<span>🔗</span><span class="neuro_btn-text">Connecter</span>';
-        connectBtn.className = 'neuro_btn neuro_btn-primary';
-        connectBtn.onclick = connectDevice;
-        connectBtn.title = 'Connecter le casque Neurosity (Ctrl+K)';
-    }
-}
-
-/**
- * Fonction de déconnexion mise à jour
- */
-function disconnectDevice() {
-    if (!confirm('Êtes-vous sûr de vouloir déconnecter le casque ?')) {
-        return;
-    }
-
+    // Bouton de connexion
     const connectBtn = document.getElementById('connectBtn');
     if (connectBtn) {
-        connectBtn.disabled = true;
-        connectBtn.innerHTML = '<span>⏳</span><span class="neuro_btn-text">Déconnexion...</span>';
+      connectBtn.innerHTML = connected ?
+        '<span>🔌</span><span class="neuro_btn-text">Déconnecter</span>' :
+        '<span>🔗</span><span class="neuro_btn-text">Connecter</span>';
+      connectBtn.className = connected ?
+        'neuro_btn neuro_btn-danger' :
+        'neuro_btn neuro_btn-primary';
+      connectBtn.onclick = connected ? DeviceManager.disconnect : DeviceManager.connect;
     }
 
-    fetch('/disconnect', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('🔌 Casque déconnecté', 'success');
-            updateConnectionButton(false);
-
-            // Arrêter le monitoring s'il était actif
-            if (window.AppState.isMonitoring) {
-                stopMonitoring();
-            }
-
-            // Mettre à jour tous les statuts
-            window.AppState.isConnected = false;
-            window.AppState.isMonitoring = false;
-            updateConnectionStatus(false, false, false);
-        } else {
-            showToast('❌ Erreur déconnexion: ' + (data.error || 'Erreur inconnue'), 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Erreur déconnexion:', error);
-        showToast('❌ Erreur de déconnexion', 'error');
-    })
-    .finally(() => {
-        if (connectBtn) {
-            connectBtn.disabled = false;
-        }
-    });
-}
-
-/**
- * Connecte le casque avec interface de détection stricte
- */
-function connectDevice() {
-    const connectBtn = document.getElementById('connectBtn');
-    if (connectBtn) {
-        connectBtn.disabled = true;
-        connectBtn.innerHTML = '<span>⏳</span><span class="neuro_btn-text">Connexion...</span>';
+    // Statut de connexion
+    const connectionStatus = document.getElementById('connectionStatus');
+    const connectionText = document.getElementById('connectionText');
+    if (connectionStatus && connectionText) {
+      connectionStatus.className = connected ?
+        'neuro_status-dot neuro_status-connected' :
+        'neuro_status-dot neuro_status-disconnected';
+      connectionText.textContent = connected ? 'Connecté' : 'Déconnecté';
     }
 
-    showToast('🔄 Connexion en cours...', 'info', 3000);
-
-    fetch('/connect', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('✅ ' + (data.message || 'Casque connecté avec succès !'), 'success');
-            updateConnectionButton(true);
-
-            // Mettre à jour l'état global
-            window.AppState.isConnected = true;
-            window.AppState.deviceStatus = data.device_status || {};
-
-            updateConnectionStatus(true, false, false);
-            updateDeviceStatus(data.device_status || {});
-
-            // Démarrer automatiquement le monitoring
-            setTimeout(() => {
-                console.log('🎯 Démarrage automatique du monitoring...');
-                startMonitoring();
-            }, 1000);
-
-        } else {
-            showToast('❌ ' + (data.error || 'Erreur de connexion'), 'error', 8000);
-            updateConnectionButton(false);
-            window.AppState.isConnected = false;
-            updateConnectionStatus(false, false, false);
-        }
-    })
-    .catch(error => {
-        console.error('Erreur connexion:', error);
-        showToast('❌ Erreur de connexion réseau', 'error');
-        updateConnectionButton(false);
-        window.AppState.isConnected = false;
-        updateConnectionStatus(false, false, false);
-    })
-    .finally(() => {
-        if (connectBtn) {
-            connectBtn.disabled = false;
-        }
-    });
-}
-
-/**
- * Démarre le monitoring
- */
-function startMonitoring() {
-    if (!window.AppState.socket) {
-        console.error('❌ Socket non disponible pour le monitoring');
-        showToast('❌ Erreur WebSocket - impossible de démarrer le monitoring', 'error');
-        return;
+    // Bouton d'enregistrement
+    const recordBtn = document.getElementById('recordBtn');
+    if (recordBtn) {
+      recordBtn.disabled = !connected;
+      recordBtn.innerHTML = recording ?
+        '<span>⏹️</span><span class="neuro_btn-text">Arrêter</span>' :
+        '<span>⏺️</span><span class="neuro_btn-text">Enregistrer</span>';
+      recordBtn.className = recording ?
+        'neuro_btn neuro_btn-danger' :
+        'neuro_btn neuro_btn-success';
     }
 
-    if (!window.AppState.isConnected) {
-        console.warn('⚠️ Tentative de démarrage monitoring sans connexion');
-        showToast('⚠️ Connectez d\'abord votre casque Neurosity Crown', 'warning');
-        return;
+    // Statut d'enregistrement
+    const recordingStatus = document.getElementById('recordingStatus');
+    if (recordingStatus) {
+      recordingStatus.style.display = recording ? 'flex' : 'none';
     }
 
-    if (window.AppState.isMonitoring) {
-        console.log('🎯 Monitoring déjà actif');
-        return;
+    // Bouton de téléchargement
+    const downloadBtn = document.getElementById('downloadBtn');
+    if (downloadBtn) {
+      downloadBtn.disabled = !connected;
     }
 
-    console.log('🎯 Envoi commande start_monitoring...');
-    showToast('🎯 Démarrage du monitoring...', 'info', 2000);
+    this.updateSystemStatus(connected, monitoring);
+  },
 
-    try {
-        window.AppState.socket.emit('start_monitoring');
-    } catch (error) {
-        console.error('❌ Erreur émission start_monitoring:', error);
-        showToast('❌ Erreur de démarrage du monitoring', 'error');
-    }
-}
-
-/**
- * Arrête le monitoring
- */
-function stopMonitoring() {
-    if (!window.AppState.socket) {
-        console.error('❌ Socket non disponible pour arrêter le monitoring');
-        return;
-    }
-
-    if (!window.AppState.isMonitoring) {
-        console.log('⏹️ Monitoring déjà arrêté');
-        return;
-    }
-
-    console.log('⏹️ Envoi commande stop_monitoring...');
-    showToast('⏹️ Arrêt du monitoring...', 'info', 2000);
-
-    try {
-        window.AppState.socket.emit('stop_monitoring');
-    } catch (error) {
-        console.error('❌ Erreur émission stop_monitoring:', error);
-        showToast('❌ Erreur d\'arrêt du monitoring', 'error');
-    }
-}
-
-/**
- * Met à jour le statut du dispositif avec informations de validation
- */
-function updateDeviceStatus(deviceStatus) {
-    window.AppState.deviceStatus = deviceStatus;
+  updateDeviceStatus(deviceStatus) {
+    NeuroApp.state.deviceStatus = deviceStatus;
 
     const deviceIndicator = document.getElementById('deviceStatusIndicator');
     const deviceDot = document.getElementById('deviceStatusDot');
     const deviceText = document.getElementById('deviceStatusText');
 
     if (deviceIndicator && deviceDot && deviceText) {
-        if (deviceStatus.online) {
-            deviceIndicator.style.display = 'flex';
-            deviceDot.className = 'neuro_status-dot neuro_status-connected';
+      if (deviceStatus.online) {
+        deviceIndicator.style.display = 'flex';
+        deviceDot.className = 'neuro_status-dot neuro_status-connected';
 
-            // Information enrichie avec validation
-            let statusText = 'Crown';
-
-            if (deviceStatus.validation === 'biological_data_confirmed_v2') {
-                statusText += ' ✓';
-            }
-
-            if (deviceStatus.battery && deviceStatus.battery !== 'unknown') {
-                statusText += ` ${deviceStatus.battery}%`;
-            }
-
-            if (deviceStatus.signal && deviceStatus.signal !== 'unknown') {
-                const signalEmoji = {
-                    'excellent': '🟢',
-                    'good': '🟡',
-                    'poor': '🟠',
-                    'biological_data_confirmed': '🔬'
-                }[deviceStatus.signal] || '🔴';
-                statusText += ` ${signalEmoji}`;
-            }
-
-            deviceText.textContent = statusText;
-        } else {
-            deviceIndicator.style.display = 'none';
+        let statusText = 'Crown';
+        if (deviceStatus.battery !== undefined && deviceStatus.battery !== 'unknown') {
+          const batteryIcon = deviceStatus.charging ? '⚡' : '🔋';
+          statusText += ` ${batteryIcon} ${deviceStatus.battery}%`;
         }
+
+        deviceText.textContent = statusText;
+      } else {
+        deviceIndicator.style.display = 'none';
+      }
+    }
+  },
+
+  updateBatteryStatus(data) {
+    if (!data || data.level === undefined) return;
+
+    const level = data.level;
+    const charging = data.charging;
+
+    NeuroApp.state.deviceStatus.battery = level;
+    NeuroApp.state.deviceStatus.charging = charging;
+
+    // Icône et couleur selon le niveau
+    let batteryIcon = charging ? '⚡' : (level <= 20 ? '🪫' : '🔋');
+    let colorClass = level <= 20 ? 'battery-low' : (level <= 50 ? 'battery-medium' : 'battery-good');
+
+    // Mise à jour du statut système
+    const batteryEl = document.getElementById('systemBattery');
+    if (batteryEl) {
+      batteryEl.innerHTML = `<span class="${colorClass}">${batteryIcon} ${level}%</span>`;
+      batteryEl.classList.toggle('battery-charging', charging);
     }
 
-    // Mettre à jour le statut système
-    if (typeof updateSystemStatus === 'function') {
-        updateSystemStatus(window.AppState.isConnected, window.AppState.isMonitoring, deviceStatus);
-    }
-}
+    // Mise à jour dans la navbar
+    this.updateDeviceStatus(NeuroApp.state.deviceStatus);
+  },
 
-/**
- * Met à jour l'indicateur de santé de connexion
- */
-function updateConnectionHealth(healthy) {
-    const connectionStatus = document.getElementById('connectionStatus');
-    if (connectionStatus && window.AppState.isConnected) {
-        if (healthy) {
-            connectionStatus.className = 'neuro_status-dot neuro_status-connected';
-        } else {
-            connectionStatus.className = 'neuro_status-dot neuro_status-recording'; // Orange pour warning
-        }
-    }
-}
-
-/**
- * Met à jour le statut de monitoring
- */
-function updateMonitoringStatus(monitoring) {
+  updateMonitoringStatus(monitoring) {
     const charts = document.querySelectorAll('.neuro_chart-card');
     charts.forEach(chart => {
-        if (monitoring) {
-            chart.style.borderLeft = '4px solid #10b981';
-            chart.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.1)';
-        } else {
-            chart.style.borderLeft = 'none';
-            chart.style.boxShadow = '';
-        }
+      chart.style.borderLeft = monitoring ? '4px solid #10b981' : '';
+      chart.style.boxShadow = monitoring ? '0 0 20px rgba(16, 185, 129, 0.1)' : '';
     });
-}
+  },
 
-/**
- * Initialise les graphiques en barres pour les ondes cérébrales
- * Utilise la Densité Spectrale de Puissance (PSD) pour voir les micro-variations
- */
-function initializeCharts() {
-    console.log('📊 Initialisation des graphiques PSD en barres...');
-
-    const canvas = document.getElementById('brainwavesChart');
-    if (!canvas) {
-        console.error('❌ Canvas non trouvé');
-        return;
-    }
-
-    if (window.AppState.chart) {
-        window.AppState.chart.destroy();
-    }
-
-    const ctx = canvas.getContext('2d');
-
-    // Configuration pour graphique en barres
-    window.AppState.chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: [
-                'Delta\n0.5-4 Hz',
-                'Theta\n4-8 Hz',
-                'Alpha\n8-12 Hz',
-                'Beta\n12-30 Hz',
-                'Gamma\n30+ Hz'
-            ],
-            datasets: [{
-                label: 'Densité Spectrale de Puissance (μV²/Hz)',
-                data: [0, 0, 0, 0, 0],
-                backgroundColor: [
-                    'rgba(99, 102, 241, 0.8)',   // Delta - Bleu indigo
-                    'rgba(139, 92, 246, 0.8)',   // Theta - Violet
-                    'rgba(16, 185, 129, 0.8)',   // Alpha - Vert
-                    'rgba(245, 158, 11, 0.8)',   // Beta - Orange
-                    'rgba(239, 68, 68, 0.8)'     // Gamma - Rouge
-                ],
-                borderColor: [
-                    '#6366f1',  // Delta
-                    '#8b5cf6',  // Theta
-                    '#10b981',  // Alpha
-                    '#f59e0b',  // Beta
-                    '#ef4444'   // Gamma
-                ],
-                borderWidth: 2,
-                borderRadius: 8,
-                borderSkipped: false,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: {
-                duration: 150,
-                easing: 'easeOutQuint'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                title: {
-                    display: true,
-                    text: 'Ondes Cérébrales Validées - Temps Réel',
-                    font: {
-                        family: 'Inter',
-                        size: 16,
-                        weight: '600'
-                    },
-                    color: '#334155',
-                    padding: 20
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#ffffff',
-                    borderColor: '#6366f1',
-                    borderWidth: 1,
-                    cornerRadius: 8,
-                    displayColors: true,
-                    callbacks: {
-                        title: function(context) {
-                            return context[0].label.split('\n')[0];
-                        },
-                        label: function(context) {
-                            return `${context.parsed.y.toFixed(4)} μV²/Hz`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Types d\'ondes cérébrales',
-                        font: {
-                            family: 'Inter',
-                            size: 14,
-                            weight: '500'
-                        },
-                        color: '#64748b',
-                        padding: 10
-                    },
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        font: {
-                            family: 'Inter',
-                            size: 11,
-                            weight: '500'
-                        },
-                        color: '#64748b',
-                        maxRotation: 0,
-                        padding: 10
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Densité Spectrale de Puissance (μV²/Hz)',
-                        font: {
-                            family: 'Inter',
-                            size: 14,
-                            weight: '500'
-                        },
-                        color: '#64748b',
-                        padding: 10
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.08)',
-                        drawBorder: false,
-                        lineWidth: 1
-                    },
-                    ticks: {
-                        font: {
-                            family: 'Inter',
-                            size: 11
-                        },
-                        color: '#94a3b8',
-                        padding: 8,
-                        callback: function(value) {
-                            return value.toFixed(3) + ' μV²/Hz';
-                        }
-                    },
-                    beginAtZero: true,
-                    max: 0.5
-                }
-            },
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            elements: {
-                bar: {
-                    borderRadius: 8,
-                    borderWidth: 2
-                }
-            }
-        }
-    });
-
-    console.log('✅ Graphique en barres créé avec PSD (Power Spectral Density)');
-}
-
-/**
- * Gère l'enregistrement
- */
-async function toggleRecording() {
-    if (!window.AppState.isConnected) {
-        showToast('⚠️ Connectez d\'abord votre casque Neurosity Crown avec la détection', 'warning');
-        return;
-    }
-
-    try {
-        const endpoint = window.AppState.isRecording ? '/stop_recording' : '/start_recording';
-        const actionText = window.AppState.isRecording ? 'Arrêt' : 'Démarrage';
-
-        showToast(`🎬 ${actionText} de l'enregistrement...`, 'info');
-
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            window.AppState.isRecording = result.recording;
-
-            if (window.AppState.isRecording) {
-                showToast('🔴 Enregistrement démarré ! Données biologiques validées sauvegardées en temps réel', 'success');
-            } else {
-                showToast('⏹️ Enregistrement arrêté. Fichier CSV avec données validées disponible', 'success');
-                setTimeout(loadSessions, 1000);
-            }
-        } else {
-            showToast('❌ Erreur enregistrement: ' + (result.error || 'Erreur inconnue'), 'error');
-        }
-
-        updateConnectionStatus(window.AppState.isConnected, window.AppState.isRecording, window.AppState.isMonitoring);
-
-    } catch (error) {
-        console.error('❌ Erreur enregistrement:', error);
-        showToast('❌ Erreur d\'enregistrement: ' + error.message, 'error');
-    }
-}
-
-/**
- * Télécharge les données
- */
-async function downloadData() {
-    try {
-        showToast('📥 Recherche de la dernière session validée...', 'info');
-
-        const response = await fetch('/sessions');
-        const data = await response.json();
-
-        if (data.sessions && data.sessions.length > 0) {
-            const latestSession = data.sessions[0];
-            const link = document.createElement('a');
-            link.href = `/download/${latestSession}`;
-            link.download = latestSession;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            showToast(`📊 Téléchargement de ${latestSession} (données biologiques validées)`, 'success');
-        } else {
-            showToast('📝 Aucune session disponible. Démarrez un enregistrement d\'abord.', 'warning');
-        }
-    } catch (error) {
-        console.error('❌ Erreur téléchargement:', error);
-        showToast('❌ Erreur de téléchargement: ' + error.message, 'error');
-    }
-}
-
-/**
- * Met à jour l'interface utilisateur
- */
-function updateConnectionStatus(connected, recording, monitoring) {
-    window.AppState.isConnected = connected;
-    window.AppState.isRecording = recording;
-    window.AppState.isMonitoring = monitoring;
-
-    const recordBtn = document.getElementById('recordBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const connectionStatus = document.getElementById('connectionStatus');
-    const connectionText = document.getElementById('connectionText');
-    const recordingStatus = document.getElementById('recordingStatus');
-
-    // Mettre à jour le bouton de connexion séparément
-    updateConnectionButton(connected);
-
-    // Statut de connexion
-    if (connectionStatus && connectionText) {
-        if (connected) {
-            connectionStatus.className = 'neuro_status-dot neuro_status-connected';
-            connectionText.textContent = 'Connecté (Validé)';
-        } else {
-            connectionStatus.className = 'neuro_status-dot neuro_status-disconnected';
-            connectionText.textContent = 'Déconnecté';
-        }
-    }
-
-    // Bouton d'enregistrement
-    if (recordBtn) {
-        recordBtn.disabled = !connected;
-
-        if (recording) {
-            recordBtn.innerHTML = '<span>⏹️</span><span class="neuro_btn-text"> Arrêter</span>';
-            recordBtn.className = 'neuro_btn neuro_btn-danger';
-        } else {
-            recordBtn.innerHTML = '<span>⏺️</span><span class="neuro_btn-text"> Enregistrer</span>';
-            recordBtn.className = 'neuro_btn neuro_btn-success';
-        }
-    }
-
-    // Bouton de téléchargement
-    if (downloadBtn) {
-        downloadBtn.disabled = !connected;
-    }
-
-    // Statut d'enregistrement
-    if (recordingStatus) {
-        if (recording) {
-            recordingStatus.style.display = 'flex';
-        } else {
-            recordingStatus.style.display = 'none';
-        }
-    }
-
-    console.log(`🔄 Statut mis à jour: Connected=${connected}, Recording=${recording}, Monitoring=${monitoring}`);
-}
-
-/**
- * Gestionnaires des données en temps réel
- */
-function handleCalmData(data) {
-    if (!window.AppState.isConnected) return;
-
-    window.AppState.lastDataTime = new Date();
-    updateCircularProgress('calm', data.calm, data.timestamp);
-    flashDataIndicator('calm');
-}
-
-function handleFocusData(data) {
-    if (!window.AppState.isConnected) return;
-
-    window.AppState.lastDataTime = new Date();
-    updateCircularProgress('focus', data.focus, data.timestamp);
-    flashDataIndicator('focus');
-}
-
-/**
- * Gestionnaire des données brainwaves pour graphique en barres
- */
-function handleBrainwavesData(data) {
-    if (!window.AppState.isConnected || !window.AppState.chart) return;
-
-    window.AppState.lastDataTime = new Date();
-
-    const chart = window.AppState.chart;
-
-    // Calculer les moyennes pour chaque type d'onde
-    const avgData = {
-        delta: calculateAverage(data.delta),
-        theta: calculateAverage(data.theta),
-        alpha: calculateAverage(data.alpha),
-        beta: calculateAverage(data.beta),
-        gamma: calculateAverage(data.gamma)
-    };
-
-    // Mettre à jour les données du graphique en barres
-    chart.data.datasets[0].data = [
-        avgData.delta,
-        avgData.theta,
-        avgData.alpha,
-        avgData.beta,
-        avgData.gamma
-    ];
-
-    // Mise à jour du graphique avec animation vive
-    chart.update('none');
-
-    // Mettre à jour le timestamp
-    const timestampElement = document.getElementById('brainwavesTimestamp');
-    if (timestampElement) {
-        timestampElement.textContent = 'Dernière validation: ' + formatTimestamp(data.timestamp);
-    }
-
-    // Animation visuelle pour indiquer la réception de nouvelles données
-    flashDataIndicator('brainwaves');
-
-    // Log des données pour debug
-    if (window.AppState.debugMode) {
-        console.log('📊 Ondes cérébrales (μV²/Hz):', {
-            delta: avgData.delta.toFixed(4),
-            theta: avgData.theta.toFixed(4),
-            alpha: avgData.alpha.toFixed(4),
-            beta: avgData.beta.toFixed(4),
-            gamma: avgData.gamma.toFixed(4)
-        });
-    }
-}
-
-/**
- * Indicateur visuel de réception de données
- */
-function flashDataIndicator(type) {
-    const elements = {
-        'calm': document.querySelector('.neuro_metric-card:nth-child(1)'),
-        'focus': document.querySelector('.neuro_metric-card:nth-child(2)'),
-        'brainwaves': document.querySelector('.neuro_chart-card')
-    };
-
-    const element = elements[type];
-    if (element) {
-        element.style.boxShadow = '0 0 20px rgba(139, 92, 246, 0.4)';
-        setTimeout(() => {
-            element.style.boxShadow = '';
-        }, 300);
-    }
-}
-
-/**
- * Met à jour les indicateurs circulaires
- */
-function updateCircularProgress(type, value, timestamp) {
+  updateCircularProgress(type, value, timestamp) {
     const circumference = 2 * Math.PI * 65;
     const progress = Math.min(Math.max(value, 0), 100);
     const offset = circumference - (progress / 100) * circumference;
 
-    const progressElement = document.getElementById(`${type}Progress`);
-    const valueElement = document.getElementById(`${type}Value`);
-    const timestampElement = document.getElementById(`${type}Timestamp`);
+    const progressEl = document.getElementById(`${type}Progress`);
+    const valueEl = document.getElementById(`${type}Value`);
+    const timestampEl = document.getElementById(`${type}Timestamp`);
 
-    if (progressElement) {
-        progressElement.style.strokeDasharray = circumference;
-        progressElement.style.strokeDashoffset = offset;
+    if (progressEl) {
+      progressEl.style.strokeDasharray = circumference;
+      progressEl.style.strokeDashoffset = offset;
     }
 
-    if (valueElement) {
-        valueElement.textContent = Math.round(progress) + '%';
+    if (valueEl) {
+      valueEl.textContent = Math.round(progress) + '%';
     }
 
-    if (timestampElement) {
-        timestampElement.textContent = formatTimestamp(timestamp) + ' ✓';
+    if (timestampEl) {
+      timestampEl.textContent = Utils.formatTimestamp(timestamp) + ' ✓';
     }
-}
+  },
 
-/**
- * NOUVELLE FONCTION: Fonction displaySessions optimisée pour les grandes listes
- */
-function displaySessionsOptimized(sessions) {
+  updateSystemStatus(connected, monitoring) {
+    document.getElementById('systemConnectionStatus').textContent =
+      connected ? 'Connecté' : 'Déconnecté';
+
+    document.getElementById('systemMonitoringStatus').textContent =
+      monitoring ? 'Actif' : 'Arrêté';
+  },
+
+  updateElectrodeQuality(electrode, quality) {
+    const electrodeEl = document.querySelector(`[data-electrode="${electrode}"]`);
+    if (!electrodeEl) return;
+
+    const percentage = Math.round(quality * 100);
+    const valueEl = electrodeEl.querySelector('.neuro_electrode-svg-value');
+    if (valueEl) {
+      valueEl.textContent = `${percentage}%`;
+    }
+
+    electrodeEl.classList.remove('neuro_quality-good', 'neuro_quality-medium', 'neuro_quality-poor');
+    electrodeEl.classList.add(
+      quality >= 0.90 ? 'neuro_quality-good' :
+      quality >= 0.50 ? 'neuro_quality-medium' :
+      'neuro_quality-poor'
+    );
+  },
+
+  flashIndicator(type) {
+    const elements = {
+      'calm': '.neuro_metric-card:nth-child(1)',
+      'focus': '.neuro_metric-card:nth-child(2)',
+      'brainwaves': '.neuro_chart-card',
+      'signal_quality': '.neuro_signal-quality-section',
+      'eeg_raw': '.neuro_eeg-raw-card'
+    };
+
+    const element = document.querySelector(elements[type]);
+    if (element) {
+      element.style.boxShadow = '0 0 20px rgba(139, 92, 246, 0.4)';
+      setTimeout(() => element.style.boxShadow = '', 300);
+    }
+  },
+
+  hideLoader() {
+    const loader = document.getElementById('initialLoader');
+    if (loader) {
+      loader.classList.add('neuro_hidden');
+      setTimeout(() => loader.remove(), 500);
+    }
+    document.body.classList.add('neuro_loaded');
+  }
+};
+
+// ===============================================
+// GESTIONNAIRE DE PÉRIPHÉRIQUE
+// ===============================================
+
+const DeviceManager = {
+  async connect() {
+    const connectBtn = document.getElementById('connectBtn');
+    if (connectBtn) {
+      connectBtn.disabled = true;
+      connectBtn.innerHTML = '<span class="neuro_btn-text">Connexion...</span>';
+    }
+
+    UI.showToast('Connexion au casque Neurosity...', 'info', 3000);
+
+    try {
+      const response = await fetch('/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        UI.showToast(data.message || 'Casque connecté !', 'success');
+        UI.updateConnectionStatus(true, false, false);
+        UI.updateDeviceStatus(data.device_status || {});
+
+        // Démarrer le monitoring automatiquement
+        setTimeout(() => {
+          if (SocketManager.socket && SocketManager.socket.connected) {
+            SocketManager.emit('start_monitoring');
+          }
+        }, 1000);
+      } else {
+        UI.showToast(data.error || 'Erreur de connexion', 'error', 8000);
+      }
+    } catch (error) {
+      console.error('Erreur connexion:', error);
+      UI.showToast('Erreur réseau', 'error');
+    } finally {
+      if (connectBtn) {
+        connectBtn.disabled = false;
+      }
+    }
+  },
+
+  async disconnect() {
+    if (!confirm('Êtes-vous sûr de vouloir déconnecter le casque ?')) return;
+
+    try {
+      const response = await fetch('/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        UI.showToast('🔌 Casque déconnecté', 'success');
+
+        if (NeuroApp.state.isMonitoring) {
+          SocketManager.emit('stop_monitoring');
+        }
+
+        UI.updateConnectionStatus(false, false, false);
+
+        // Réinitialiser les électrodes
+        document.querySelectorAll('.neuro_electrode-svg').forEach(el => {
+          el.classList.remove('neuro_quality-good', 'neuro_quality-medium');
+          el.classList.add('neuro_quality-poor');
+          const valueEl = el.querySelector('.neuro_electrode-svg-value');
+          if (valueEl) valueEl.textContent = '--%';
+        });
+
+        // Réinitialiser l'EEG raw
+        if (NeuroApp.state.charts.eegRaw) {
+          NeuroApp.state.charts.eegRaw.dataBuffer = [];
+          NeuroApp.state.charts.eegRaw.draw();
+        }
+      }
+    } catch (error) {
+      console.error('Erreur déconnexion:', error);
+      UI.showToast('Erreur réseau', 'error');
+    }
+  }
+};
+
+// ===============================================
+// GESTIONNAIRE D'ENREGISTREMENT
+// ===============================================
+
+const RecordingManager = {
+  async toggle() {
+    if (!NeuroApp.state.isConnected) {
+      UI.showToast('Connectez d\'abord votre casque', 'warning');
+      return;
+    }
+
+    const endpoint = NeuroApp.state.isRecording ? '/stop_recording' : '/start_recording';
+    const action = NeuroApp.state.isRecording ? 'Arrêt' : 'Démarrage';
+
+    UI.showToast(`🎬 ${action} de l'enregistrement...`, 'info');
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        NeuroApp.state.isRecording = result.recording;
+        UI.showToast(
+          NeuroApp.state.isRecording ? 'Enregistrement démarré !' : 'Enregistrement arrêté',
+          'success'
+        );
+
+        if (!NeuroApp.state.isRecording) {
+          setTimeout(() => SessionsManager.load(), 1000);
+        }
+
+        UI.updateConnectionStatus(
+          NeuroApp.state.isConnected,
+          NeuroApp.state.isRecording,
+          NeuroApp.state.isMonitoring
+        );
+      } else {
+        UI.showToast('Erreur: ' + (result.error || 'Erreur inconnue'), 'error');
+      }
+    } catch (error) {
+      console.error('Erreur enregistrement:', error);
+      UI.showToast('Erreur réseau', 'error');
+    }
+  },
+
+  async download() {
+    try {
+      UI.showToast('Recherche de la dernière session...', 'info');
+
+      const response = await fetch('/sessions');
+      const data = await response.json();
+
+      if (data.sessions && data.sessions.length > 0) {
+        const latestSession = data.sessions[0];
+        const link = document.createElement('a');
+        link.href = `/download/${latestSession}`;
+        link.download = latestSession;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        UI.showToast(`Téléchargement: ${latestSession}`, 'success');
+      } else {
+        UI.showToast('Aucune session disponible', 'warning');
+      }
+    } catch (error) {
+      console.error('Erreur téléchargement:', error);
+      UI.showToast('Erreur téléchargement', 'error');
+    }
+  }
+};
+
+// ===============================================
+// GESTIONNAIRE DE SESSIONS
+// ===============================================
+
+const SessionsManager = {
+  async load() {
+    try {
+      const response = await fetch('/sessions');
+      const data = await response.json();
+      this.display(data.sessions || []);
+    } catch (error) {
+      console.error('Erreur chargement sessions:', error);
+      document.getElementById('sessionsList').innerHTML =
+        '<p style="color: #ef4444;">Erreur de chargement</p>';
+    }
+  },
+
+  display(sessions) {
     const sessionsList = document.getElementById('sessionsList');
     if (!sessionsList) return;
 
-    // Sauvegarder toutes les sessions
-    window.SessionsManager.allSessions = [...sessions];
-    window.SessionsManager.currentPage = 0;
-    window.SessionsManager.visibleSessions = [];
+    NeuroApp.state.sessions = sessions;
 
-    // Décider si utiliser la virtualisation
-    const useVirtualization = sessions.length > 100;
-    window.SessionsManager.isVirtualizationEnabled = useVirtualization;
+    // Mise à jour du compteur
+    const counter = document.getElementById('sessionsCounter');
+    if (counter) {
+      counter.textContent = sessions.length === 0 ?
+        'Aucune session' :
+        `${sessions.length} session${sessions.length > 1 ? 's' : ''}`;
+    }
+
+    // Mise à jour des statistiques
+    document.getElementById('totalSessions').textContent = sessions.length;
+    document.getElementById('totalSize').textContent =
+      sessions.length < 1 ? '0 KB' : `${(sessions.length * 0.4).toFixed(1)} MB`;
 
     if (sessions.length === 0) {
-        sessionsList.innerHTML = `
-            <div class="neuro_sessions-empty">
-                Aucune session validée enregistrée
-                <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">
-                    Connectez votre casque avec détection pour créer une session
-                </div>
+      sessionsList.innerHTML = `
+        <div class="neuro_sessions-empty">
+          Aucune session enregistrée
+          <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">
+            Connectez votre casque pour créer une session
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Afficher les sessions
+    sessionsList.innerHTML = sessions.map((session, index) => {
+      const dateMatch = session.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+      let displayDate = 'Session';
+      let displayTime = '';
+
+      if (dateMatch) {
+        const [, year, month, day, hour, minute] = dateMatch;
+        displayDate = `${day}/${month}/${year}`;
+        displayTime = `${hour}:${minute}`;
+      }
+
+      return `
+        <div class="neuro_session-item" style="animation-delay: ${(index % 10) * 0.05}s">
+          <div class="neuro_session-info">
+            <div class="neuro_session-name">${session}</div>
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+              <span>📅 ${displayDate}</span>
+              <span style="margin-left: 1rem;">🕒 ${displayTime}</span>
             </div>
-        `;
-        sessionsList.className = 'neuro_sessions-empty';
+          </div>
+          <div class="neuro_session-actions">
+            <button class="neuro_btn neuro_btn-outline neuro_btn-small" 
+                    onclick="SessionsManager.download('${session}')"
+                    title="Télécharger CSV">
+              <span>⬇️</span> CSV
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
 
-        // Mettre à jour les statistiques
-        updateSessionsStats([]);
-        return;
-    }
-
-    // Vider la liste
-    sessionsList.className = '';
-    sessionsList.innerHTML = '';
-
-    if (useVirtualization) {
-        // Chargement initial avec virtualisation
-        console.log(`📊 Virtualisation activée pour ${sessions.length} sessions`);
-
-        const initialSessions = sessions.slice(0, window.SessionsManager.itemsPerPage);
-        window.SessionsManager.visibleSessions = [...initialSessions];
-
-        // Créer les éléments DOM
-        const fragment = document.createDocumentFragment();
-        initialSessions.forEach((session, index) => {
-            const sessionElement = window.SessionsManager.createSessionElement(session, index);
-            fragment.appendChild(sessionElement);
-        });
-        sessionsList.appendChild(fragment);
-
-        // Ajouter un indicateur de chargement progressif
-        if (window.SessionsManager.hasMoreSessions()) {
-            const loadMoreIndicator = document.createElement('div');
-            loadMoreIndicator.className = 'neuro_load-more-indicator';
-            loadMoreIndicator.innerHTML = `
-                <div style="text-align: center; padding: 1rem; color: #8b5cf6; font-size: 0.875rem;">
-                    📄 ${sessions.length - window.SessionsManager.itemsPerPage} sessions supplémentaires disponibles
-                    <br>
-                    <small style="opacity: 0.7;">Faites défiler pour charger automatiquement</small>
-                </div>
-            `;
-            sessionsList.appendChild(loadMoreIndicator);
-        }
-
-        if (window.showToast) {
-            window.showToast(
-                `📊 ${initialSessions.length}/${sessions.length} sessions affichées (chargement progressif activé)`,
-                'info',
-                4000
-            );
-        }
-    } else {
-        // Affichage normal pour les petites listes
-        console.log(`📊 Affichage normal pour ${sessions.length} sessions`);
-
-        const fragment = document.createDocumentFragment();
-        sessions.forEach((session, index) => {
-            const sessionElement = window.SessionsManager.createSessionElement(session, index);
-            fragment.appendChild(sessionElement);
-        });
-        sessionsList.appendChild(fragment);
-
-        if (sessions.length > 0) {
-            if (window.showToast) {
-                window.showToast(
-                    `📁 ${sessions.length} session(s) validée(s) trouvée(s)`,
-                    'info',
-                    2000
-                );
-            }
-        }
-    }
-
-    // Mettre à jour les statistiques
-    updateSessionsStats(sessions);
-
-    // Initialiser les gestionnaires de scroll
-    setTimeout(() => {
-        window.SessionsManager.updateScrollIndicators();
-    }, 100);
-}
-
-/**
- * NOUVELLE FONCTION: Fonction de recherche/filtrage des sessions
- */
-function filterSessions(searchTerm) {
-    if (!searchTerm || searchTerm.trim() === '') {
-        // Réafficher toutes les sessions
-        displaySessionsOptimized(window.SessionsManager.allSessions);
-        return;
-    }
-
-    const filtered = window.SessionsManager.allSessions.filter(session =>
-        session.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    displaySessionsOptimized(filtered);
-
-    if (window.showToast) {
-        window.showToast(
-            `🔍 ${filtered.length} session(s) trouvée(s) pour "${searchTerm}"`,
-            'info',
-            3000
-        );
-    }
-}
-
-/**
- * NOUVELLE FONCTION: Fonction updateSessionsStats avec calculs plus précis
- */
-function updateSessionsStats(sessions) {
-    const totalSessionsEl = document.getElementById('totalSessions');
-    const totalSizeEl = document.getElementById('totalSize');
-    const sessionsCounterEl = document.getElementById('sessionsCounter');
-
-    if (totalSessionsEl) {
-        totalSessionsEl.textContent = sessions.length;
-    }
-
-    if (sessionsCounterEl) {
-        const displayText = sessions.length === 0
-            ? 'Aucune session'
-            : `${sessions.length} session${sessions.length > 1 ? 's' : ''}`;
-        sessionsCounterEl.textContent = displayText;
-    }
-
-    // Estimation de la taille plus réaliste
-    if (totalSizeEl) {
-        let estimatedSize;
-        if (sessions.length === 0) {
-            estimatedSize = 0;
-        } else if (sessions.length < 10) {
-            estimatedSize = sessions.length * 0.3; // ~300KB par session pour petites listes
-        } else if (sessions.length < 100) {
-            estimatedSize = sessions.length * 0.5; // ~500KB par session
-        } else {
-            estimatedSize = sessions.length * 0.4; // ~400KB par session (compression pour grandes listes)
-        }
-
-        if (estimatedSize < 1) {
-            totalSizeEl.textContent = (estimatedSize * 1000).toFixed(0) + ' KB';
-        } else {
-            totalSizeEl.textContent = estimatedSize.toFixed(1) + ' MB';
-        }
-    }
-
-    // Animation des statistiques
-    [totalSessionsEl, totalSizeEl].forEach(el => {
-        if (el) {
-            el.style.transform = 'scale(1.1)';
-            el.style.transition = 'transform 0.2s ease';
-            setTimeout(() => {
-                el.style.transform = 'scale(1)';
-            }, 200);
-        }
-    });
-}
-
-/**
- * Charge la liste des sessions
- */
-async function loadSessions() {
-    try {
-        const response = await fetch('/sessions');
-        const data = await response.json();
-        displaySessionsOptimized(data.sessions || []);
-        return Promise.resolve();
-    } catch (error) {
-        console.error('❌ Erreur chargement sessions:', error);
-        const sessionsList = document.getElementById('sessionsList');
-        if (sessionsList) {
-            sessionsList.innerHTML = '<p style="color: #ef4444;">Erreur de chargement des sessions</p>';
-        }
-        return Promise.reject(error);
-    }
-}
-
-/**
- * FONCTION MAINTENUE POUR COMPATIBILITÉ: Affiche les sessions (version simplifiée)
- */
-function displaySessions(sessions) {
-    // Appeler la version optimisée
-    displaySessionsOptimized(sessions);
-}
-
-/**
- * Fonction pour le statut système
- */
-function updateSystemStatus(connected, monitoring, deviceStatus) {
-    const elements = {
-        connection: document.getElementById('systemConnectionStatus'),
-        monitoring: document.getElementById('systemMonitoringStatus'),
-        signal: document.getElementById('systemSignalQuality'),
-        battery: document.getElementById('systemBattery')
-    };
-
-    if (!elements.connection) return;
-
-    Object.values(elements).forEach(el => {
-        if (el) {
-            el.style.transform = 'scale(0.95)';
-            el.style.opacity = '0.7';
-        }
-    });
-
-    setTimeout(() => {
-        if (elements.connection) {
-            elements.connection.textContent = connected ? '✅ Connecté (Validé)' : '❌ Déconnecté';
-            elements.connection.style.background = connected ?
-                'rgba(139, 92, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)';
-            elements.connection.style.color = connected ? '#8b5cf6' : '#dc2626';
-            elements.connection.style.borderColor = connected ?
-                'rgba(139, 92, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-        }
-
-        if (elements.monitoring) {
-            elements.monitoring.textContent = monitoring ? '🎯 Actif (Validé)' : '⏹️ Arrêté';
-            elements.monitoring.style.background = monitoring ?
-                'rgba(139, 92, 246, 0.1)' : 'rgba(148, 163, 184, 0.1)';
-            elements.monitoring.style.color = monitoring ? '#8b5cf6' : '#64748b';
-            elements.monitoring.style.borderColor = monitoring ?
-                'rgba(139, 92, 246, 0.3)' : 'rgba(148, 163, 184, 0.3)';
-        }
-
-        if (elements.signal && deviceStatus) {
-            const signal = deviceStatus.signal || 'unknown';
-            const validation = deviceStatus.validation || '';
-
-            let signalText = 'Inconnu';
-            let signalColor = '#dc2626';
-            let signalBg = 'rgba(239, 68, 68, 0.1)';
-            let signalEmoji = '🔴';
-
-            if (validation === 'biological_data_confirmed_v2') {
-                signalText = 'Données Biologiques ✓';
-                signalColor = '#8b5cf6';
-                signalBg = 'rgba(139, 92, 246, 0.1)';
-                signalEmoji = '🔬';
-            } else if (signal === 'excellent') {
-                signalText = 'Excellent';
-                signalColor = '#059669';
-                signalBg = 'rgba(16, 185, 129, 0.1)';
-                signalEmoji = '🟢';
-            }
-
-            elements.signal.textContent = `${signalEmoji} ${signalText}`;
-            elements.signal.style.background = signalBg;
-            elements.signal.style.color = signalColor;
-            elements.signal.style.borderColor = signalColor + '40';
-        }
-
-        if (elements.battery && deviceStatus) {
-            const battery = deviceStatus.battery || 0;
-            let batteryConfig;
-
-            if (battery > 60 || battery === 'unknown') {
-                batteryConfig = { emoji: '🔋', color: '#059669', bg: 'rgba(16, 185, 129, 0.1)' };
-            } else if (battery > 30) {
-                batteryConfig = { emoji: '🪫', color: '#d97706', bg: 'rgba(245, 158, 11, 0.1)' };
-            } else if (battery > 0) {
-                batteryConfig = { emoji: '🔴', color: '#dc2626', bg: 'rgba(239, 68, 68, 0.1)' };
-            } else {
-                batteryConfig = { emoji: '❓', color: '#64748b', bg: 'rgba(148, 163, 184, 0.1)' };
-            }
-
-            const batteryText = battery === 'unknown' ? 'N/A' : `${battery}%`;
-            elements.battery.textContent = `${batteryConfig.emoji} ${batteryText}`;
-            elements.battery.style.background = batteryConfig.bg;
-            elements.battery.style.color = batteryConfig.color;
-            elements.battery.style.borderColor = batteryConfig.color + '40';
-        }
-
-        Object.values(elements).forEach(el => {
-            if (el) {
-                el.style.transform = 'scale(1)';
-                el.style.opacity = '1';
-                el.style.transition = 'all 0.3s ease';
-            }
-        });
-    }, 150);
-}
-
-function downloadSession(filename) {
+  download(filename) {
     const link = document.createElement('a');
     link.href = `/download/${filename}`;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast(`📊 Téléchargement de ${filename} (données validées)`, 'success');
-}
+    UI.showToast(`Téléchargement: ${filename}`, 'success');
+  },
 
-function checkDeviceStatus() {
-    if (window.AppState.socket && window.AppState.isConnected) {
-        window.AppState.socket.emit('check_device_status');
+  refresh() {
+    const btn = document.querySelector('.neuro_sessions-refresh-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="neuro_btn-text">Actualisation...</span>';
     }
-}
 
-setInterval(checkDeviceStatus, 30000);
+    UI.showToast('Actualisation des sessions...', 'info', 2000);
 
-/**
- * Fonction pour activer/désactiver le mode debug
- */
-function toggleDebugMode() {
-    window.AppState.debugMode = !window.AppState.debugMode;
-    showToast(
-        `🔧 Mode debug ${window.AppState.debugMode ? 'activé' : 'désactivé'}`,
-        'info',
-        2000
-    );
-    console.log(`Debug mode: ${window.AppState.debugMode}`);
-}
+    this.load().finally(() => {
+      if (btn) {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔄</span><span class="neuro_btn-text">Actualiser</span>';
+        }, 1000);
+      }
+    });
+  }
+};
 
-/**
- * Fonctions utilitaires
- */
-function calculateAverage(array) {
-    if (!array || array.length === 0) return 0;
-    const validNumbers = array.filter(val => typeof val === 'number' && !isNaN(val));
-    if (validNumbers.length === 0) return 0;
-    return validNumbers.reduce((a, b) => a + b, 0) / validNumbers.length;
-}
+// ===============================================
+// GESTIONNAIRE DE GRAPHIQUES
+// ===============================================
 
-function formatTimestamp(timestamp) {
+const ChartManager = {
+  init() {
+    const canvas = document.getElementById('brainwavesChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    NeuroApp.state.charts.brainwaves = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [
+          'Delta\n0.1-4 Hz',
+          'Theta\n4-7.5 Hz',
+          'Alpha\n7.5-12.5 Hz',
+          'Beta\n12.5-30 Hz',
+          'Gamma\n30-100 Hz'
+        ],
+        datasets: [{
+          label: 'Power (μV²/Hz)',
+          data: [0, 0, 0, 0, 0],
+          backgroundColor: [
+            'rgba(99, 102, 241, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(34, 197, 94, 0.8)',
+            'rgba(236, 72, 153, 0.8)'
+          ],
+          borderColor: [
+            'rgb(99, 102, 241)',
+            'rgb(245, 158, 11)',
+            'rgb(59, 130, 246)',
+            'rgb(34, 197, 94)',
+            'rgb(236, 72, 153)'
+          ],
+          borderWidth: 1,
+          barThickness: 'flex',
+          maxBarThickness: 100,
+          categoryPercentage: 0.8,
+          barPercentage: 0.9
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: NeuroApp.config.chartUpdateAnimation,
+          easing: 'linear'
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            callbacks: {
+              title: (context) => context[0].label.split('\n')[0],
+              label: (context) => context.parsed.y.toFixed(1) + ' μV²/Hz'
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: 'Inter, sans-serif', size: 11 },
+              color: '#64748b'
+            }
+          },
+          y: {
+            min: 0,
+            max: 20,
+            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+            ticks: {
+              stepSize: 2,
+              font: { family: 'Inter, sans-serif', size: 11 },
+              color: '#94a3b8',
+              callback: (value) => value % 2 === 0 ? value + ' μV²/Hz' : ''
+            }
+          }
+        }
+      }
+    });
+  },
+
+  initEEGRaw() {
+    const canvas = document.getElementById('eegRawChart');
+    if (!canvas) return;
+
+    NeuroApp.state.charts.eegRaw = new EEGRawChart(canvas);
+  }
+};
+
+// ===============================================
+// UTILITAIRES
+// ===============================================
+
+const Utils = {
+  formatTimestamp(timestamp) {
     if (!timestamp) return '--';
     try {
-        return new Date(timestamp).toLocaleString('fr-FR');
+      return new Date(timestamp).toLocaleTimeString('fr-FR');
     } catch {
-        return '--';
+      return '--';
     }
+  },
+
+  initClock() {
+    const timeEl = document.getElementById('currentTime');
+    if (!timeEl) return;
+
+    const updateClock = () => {
+      timeEl.textContent = new Date().toLocaleTimeString('fr-FR');
+    };
+
+    updateClock();
+    setInterval(updateClock, 1000);
+  }
+};
+
+// ===============================================
+// INITIALISATION
+// ===============================================
+
+function initializeApp() {
+  console.log('Démarrage Neurosity Monitor...');
+
+  // Cacher le loader
+  setTimeout(() => UI.hideLoader(), 1000);
+
+  // Initialiser l'horloge
+  Utils.initClock();
+
+  // Initialiser WebSocket
+  SocketManager.init();
+
+  // Initialiser les graphiques
+  ChartManager.init();
+  ChartManager.initEEGRaw();
+
+  // Charger les sessions
+  SessionsManager.load();
+
+  // Initialiser les électrodes
+  document.querySelectorAll('.neuro_electrode-svg').forEach(el => {
+    el.classList.add('neuro_quality-poor');
+  });
+
+  // Message de bienvenue
+  UI.showToast(
+    'Application prête ! Allumez votre casque Neurosity puis cliquez "Connecter"',
+    'info',
+    8000
+  );
 }
 
-function formatTime(timestamp) {
-    if (!timestamp) return '--';
-    try {
-        return new Date(timestamp).toLocaleTimeString('fr-FR');
-    } catch {
-        return '--';
-    }
-}
+// Event Listeners
+document.addEventListener('DOMContentLoaded', initializeApp);
 
-// Compatibilité
-function showMessage(message, type) {
-    showToast(message, type);
-}
+window.addEventListener('beforeunload', (event) => {
+  if (NeuroApp.state.isRecording) {
+    event.preventDefault();
+    event.returnValue = 'Un enregistrement est en cours. Êtes-vous sûr de vouloir fermer ?';
+    return event.returnValue;
+  }
+});
 
-// Gestionnaire de clavier pour la recherche rapide et raccourcis
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + F pour ouvrir une recherche rapide de sessions
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && window.SessionsManager.allSessions.length > 0) {
+// Raccourcis clavier
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    switch(e.key) {
+      case 'k':
         e.preventDefault();
-
-        const searchTerm = prompt('🔍 Rechercher dans les sessions:', '');
-        if (searchTerm !== null) {
-            filterSessions(searchTerm);
+        if (NeuroApp.state.isConnected) {
+          DeviceManager.disconnect();
+        } else {
+          DeviceManager.connect();
         }
-    }
-
-    // Ctrl/Cmd + D pour le mode debug
-    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        break;
+      case 'r':
         e.preventDefault();
-        toggleDebugMode();
-    }
-
-    // Raccourcis clavier existants
-    if (e.ctrlKey || e.metaKey) {
-        switch(e.key) {
-            case 'k':
-                e.preventDefault();
-                if (window.AppState.isConnected) {
-                    disconnectDevice();
-                } else {
-                    connectDevice();
-                }
-                break;
-            case 'r':
-                e.preventDefault();
-                if (window.AppState.isConnected) {
-                    toggleRecording();
-                }
-                break;
+        if (NeuroApp.state.isConnected) {
+          RecordingManager.toggle();
         }
+        break;
     }
+  }
 });
 
-// Gestion des erreurs globales
-window.addEventListener('error', function(event) {
-    console.error('Erreur JavaScript:', event.error);
-    showToast('❌ Erreur application: ' + event.error.message, 'error');
-});
-
-window.addEventListener('beforeunload', function(event) {
-    if (window.AppState.isRecording) {
-        event.preventDefault();
-        event.returnValue = 'Un enregistrement de données biologiques validées est en cours. Êtes-vous sûr de vouloir fermer ?';
-        return event.returnValue;
-    }
-});
-
-// Exporter les fonctions principales
-window.connectDevice = connectDevice;
-window.disconnectDevice = disconnectDevice;
-window.toggleRecording = toggleRecording;
-window.downloadData = downloadData;
-window.loadSessions = loadSessions;
-window.displaySessions = displaySessions;
-window.displaySessionsOptimized = displaySessionsOptimized;
-window.updateSystemStatus = updateSystemStatus;
-window.updateSessionsStats = updateSessionsStats;
-window.filterSessions = filterSessions;
-window.showToast = showToast;
-window.startMonitoring = startMonitoring;
-window.stopMonitoring = stopMonitoring;
-window.toggleDebugMode = toggleDebugMode;
-window.refreshSessions = refreshSessions;
-
-console.log('✅ Application Neurosity Monitor chargée complètement avec Sessions Manager optimisé pour milliers de fichiers');
+// Exports globaux
+window.connectDevice = () => DeviceManager.connect();
+window.disconnectDevice = () => DeviceManager.disconnect();
+window.toggleRecording = () => RecordingManager.toggle();
+window.downloadData = () => RecordingManager.download();
+window.SessionsManager = SessionsManager;
+window.refreshSessions = () => SessionsManager.refresh();

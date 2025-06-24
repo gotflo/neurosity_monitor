@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Casque EEG - Courbes Plus Arrondies</title>
+  <style>
+    body {
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    svg {
+      width: 340px;
+    }
+    .node {
+      text-anchor: middle;
+      font-family: sans-serif;
+      font-size: 10px;
+    }
+    .percent {
+      fill: gray;
+      font-size: 9px;
+    }
+  </style>
+</head>
+<body>
+  <svg viewBox="0 0 300 300">
+    <!-- Courbes extérieures (doublées) -->
+    <path d="M70 50 C30 150, 30 220, 100 260" stroke="#444" stroke-width="4" fill="none" opacity="0.5"/>
+    <path d="M74 52 C34 152, 34 222, 104 262" stroke="#444" stroke-width="4" fill="none" opacity="0.4"/>
+
+    <path d="M230 50 C270 150, 270 220, 200 260" stroke="#444" stroke-width="4" fill="none" opacity="0.5"/>
+    <path d="M226 52 C266 152, 266 222, 196 262" stroke="#444" stroke-width="4" fill="none" opacity="0.4"/>
+
+    <!-- Fermeture bas (doublée) -->
+    <path d="M100 260 Q150 280, 200 260" stroke="#444" stroke-width="4" fill="none" opacity="0.5"/>
+    <path d="M104 262 Q150 284, 196 262" stroke="#444" stroke-width="4" fill="none" opacity="0.4"/>
+
+    <!-- Connexions internes gauche avec courbure accentuée -->
+    <path d="M70 50 Q72 40, 85 60 Q92 85, 95 110 Q92 130, 90 150" stroke="#444" stroke-width="2.5" fill="none" opacity="0.6"/>
+    <path d="M74 52 Q76 42, 89 62 Q96 87, 99 112 Q96 132, 94 152" stroke="#444" stroke-width="2.5" fill="none" opacity="0.5"/>
+
+    <!-- Connexions internes droite avec courbure accentuée -->
+    <path d="M230 50 Q228 40, 215 60 Q208 85, 205 110 Q208 130, 210 150" stroke="#444" stroke-width="2.5" fill="none" opacity="0.6"/>
+    <path d="M226 52 Q224 42, 211 62 Q204 87, 201 112 Q204 132, 206 152" stroke="#444" stroke-width="2.5" fill="none" opacity="0.5"/>
+
+    <!-- Points EEG -->
+    <g class="node" transform="translate(70, 50)">
+      <circle r="8" fill="red" opacity="0.9"/>
+      <text y="-10">F5</text>
+      <text y="20" class="percent">19%</text>
+    </g>
+    <g class="node" transform="translate(230, 50)">
+      <circle r="8" fill="red" opacity="0.9"/>
+      <text y="-10">F6</text>
+      <text y="20" class="percent">16%</text>
+    </g>
+
+    <g class="node" transform="translate(95, 110)">
+      <circle r="8" fill="orange" opacity="0.8"/>
+      <text y="-10">C3</text>
+      <text y="20" class="percent">43%</text>
+    </g>
+    <g class="node" transform="translate(205, 110)">
+      <circle r="8" fill="orange" opacity="0.7"/>
+      <text y="-10">C4</text>
+      <text y="20" class="percent">34%</text>
+    </g>
+
+    <g class="node" transform="translate(90, 150)">
+      <circle r="8" fill="red" opacity="0.6"/>
+      <text y="-10">CP3</text>
+      <text y="20" class="percent">17%</text>
+    </g>
+    <g class="node" transform="translate(210, 150)">
+      <circle r="8" fill="red" opacity="0.7"/>
+      <text y="-10">CP4</text>
+      <text y="20" class="percent">33%</text>
+    </g>
+
+    <g class="node" transform="translate(100, 260)">
+      <circle r="8" fill="orange" opacity="0.8"/>
+      <text y="20">PO3</text>
+      <text y="32" class="percent">65%</text>
+    </g>
+    <g class="node" transform="translate(200, 260)">
+      <circle r="8" fill="orange" opacity="0.8"/>
+      <text y="20">PO4</text>
+      <text y="32" class="percent">52%</text>
+    </g>
+  </svg>
+</body>
+</html>
