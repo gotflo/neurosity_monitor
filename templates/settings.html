@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="settings.title">Configuration - Neurosity Crown Monitor</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/i18n.css') }}">
+
+    <!-- i18n : doit être chargé avant tout autre script applicatif -->
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+</head>
+<body>
+    <!-- Conteneur principal -->
+    <div class="settings-container">
+        <!-- En-tête avec icône cerveau -->
+        <div class="settings-header">
+            <div class="brain-icon">🧠</div>
+            <h1 class="settings-title" data-i18n="settings.heading">Configuration Neurosity</h1>
+            <p class="settings-subtitle" data-i18n="settings.subtitle">Connectez votre casque Crown pour commencer</p>
+        </div>
+
+        <!-- Formulaire de configuration -->
+        <div class="settings-form-container">
+            <!-- Configuration actuelle (si existe) -->
+            <div class="current-config" id="currentConfigSection" style="display: none;">
+                <h3 class="section-title" data-i18n="settings.current">Configuration actuelle</h3>
+                <div class="config-info">
+                    <div class="info-row">
+                        <span class="info-label" data-i18n="settings.current.email">Email :</span>
+                        <span class="info-value" id="currentEmail">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label" data-i18n="settings.current.deviceId">Device ID :</span>
+                        <span class="info-value" id="currentDeviceId">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire -->
+            <form id="settingsForm" class="settings-form">
+                <!-- Device ID -->
+                <div class="form-group">
+                    <label for="deviceId" class="form-label" data-i18n="settings.deviceId">Device ID</label>
+                    <input
+                        type="text"
+                        id="deviceId"
+                        name="deviceId"
+                        class="form-input"
+                        placeholder="Ex : 442b4e3d8a0f..."
+                        data-i18n-attr="placeholder:settings.deviceId.placeholder"
+                        required
+                    >
+                    <small class="form-help">
+                        <span data-i18n="settings.deviceId.help">Trouvez votre Device ID sur</span>
+                        <a href="https://console.neurosity.co" target="_blank" class="help-link">console.neurosity.co</a>
+                    </small>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email" class="form-label" data-i18n="settings.email">Email Neurosity</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        class="form-input"
+                        placeholder="votre.email@example.com"
+                        data-i18n-attr="placeholder:settings.email.placeholder"
+                        required
+                    >
+                    <small class="form-help" data-i18n="settings.email.help">L'email de votre compte Neurosity</small>
+                </div>
+
+                <!-- Mot de passe -->
+                <div class="form-group">
+                    <label for="password" class="form-label" data-i18n="settings.password">Mot de passe</label>
+                    <div class="password-wrapper">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-input"
+                            placeholder="••••••••"
+                            required
+                        >
+                        <button type="button" class="toggle-password" id="togglePassword">
+                            👁️
+                        </button>
+                    </div>
+                    <small class="form-help" data-i18n="settings.password.help">Votre mot de passe Neurosity (stocké de manière sécurisée)</small>
+                </div>
+
+                <!-- Ligne de séparation -->
+                <div class="form-divider"></div>
+
+                <!-- Paramètres optionnels -->
+                <div class="form-section">
+                    <h3 class="section-title" data-i18n="settings.optional">Paramètres optionnels</h3>
+
+                    <!-- Langue de l'interface -->
+                    <div class="form-group">
+                        <div class="neuro_lang-field">
+                            <span class="form-label" data-i18n="settings.language">Langue de l'interface</span>
+                            <div data-i18n-switcher></div>
+                        </div>
+                        <small class="form-help" data-i18n="settings.language.help">S'applique à toute la plateforme, graphiques inclus</small>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input
+                                type="checkbox"
+                                id="autoConnect"
+                                name="autoConnect"
+                                class="checkbox-input"
+                            >
+                            <span class="checkbox-text" data-i18n="settings.autoConnect">Connexion automatique au démarrage</span>
+                        </label>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input
+                                type="checkbox"
+                                id="rememberCredentials"
+                                name="rememberCredentials"
+                                class="checkbox-input"
+                                checked
+                            >
+                            <span class="checkbox-text" data-i18n="settings.remember">Mémoriser mes identifiants (chiffrés)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="testConnectionBtn">
+                        <span class="btn-icon">🔍</span>
+                        <span class="btn-text" data-i18n="settings.test">Tester la connexion</span>
+                    </button>
+
+                    <button type="submit" class="btn btn-primary" id="saveBtn">
+                        <span class="btn-icon">💾</span>
+                        <span class="btn-text" data-i18n="settings.save">Mettre à jour et continuer</span>
+                    </button>
+                </div>
+
+                <!-- Boutons secondaires -->
+                <div class="secondary-actions">
+                    <button type="button" class="btn-link" id="backToApp" data-i18n="settings.back">
+                        ← Retour à l'application
+                    </button>
+
+                    <button type="button" class="btn-link danger" id="clearConfig" data-i18n="settings.clear">
+                        🗑️ Effacer la configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Zone de statut -->
+        <div class="status-message" id="statusMessage" style="display: none;">
+            <span id="statusText"></span>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+</body>
+</html>

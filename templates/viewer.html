@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="viewer.title">Visualisation CSV - Neurosity</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- CSS partagé (sélecteur de langue) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/i18n.css') }}">
+
+    <!-- i18n : doit être chargé avant tout autre script applicatif -->
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #1e293b;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-info {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .header-info span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* === NOUVEAUX STYLES POUR LE FILTRAGE TEMPOREL === */
+        .time-filter-panel {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .time-filter-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .time-filter-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .filter-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .filter-input {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .filter-btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-btn.reset {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        }
+
+        .filter-info {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .filter-info.active {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        .chart-grid {
+            display: grid;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* === BOUTON DE SAUVEGARDE === */
+        .save-chart-btn {
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .save-chart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .chart-card p {
+            color: #64748b;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+
+        .chart-container.tall {
+            height: 500px;
+        }
+
+        .chart-container.extra-tall {
+            height: 600px;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .stat-details {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            border-left: 4px solid #10b981;
+        }
+
+        .toast.info {
+            border-left: 4px solid #3b82f6;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* ============ PANNEAU REPLAY ============ */
+        .replay-panel {
+            background: white;
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .replay-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .replay-controls {
+            display: grid;
+            grid-template-columns: auto auto 1fr auto;
+            grid-template-areas: "btns time progress speed";
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .replay-hint {
+            margin-top: 0.9rem;
+            padding: 0.6rem 0.9rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: #475569;
+            line-height: 1.5;
+        }
+
+        .replay-btn-group {
+            grid-area: btns;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .replay-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .replay-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
+        }
+
+        .replay-btn.secondary {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        }
+
+        .replay-btn.secondary:hover {
+            box-shadow: 0 6px 16px rgba(100, 116, 139, 0.35);
+        }
+
+        .replay-btn.accent {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        }
+
+        .replay-time {
+            grid-area: time;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            color: #334155;
+            font-size: 0.95rem;
+            min-width: 130px;
+            text-align: center;
+            padding: 0.5rem 0.75rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .replay-progress {
+            grid-area: progress;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .replay-progress::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+        .replay-progress::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+        .replay-speed {
+            grid-area: speed;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-family: inherit;
+            font-weight: 600;
+            color: #334155;
+            background: white;
+            cursor: pointer;
+        }
+
+        .replay-speed:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 900px) {
+            .replay-controls {
+                grid-template-columns: 1fr;
+                grid-template-areas: "btns" "time" "progress" "speed";
+            }
+            .replay-progress { width: 100%; }
+        }
+
+        @media (max-width: 768px) {
+            .time-filter-controls {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <h1 data-i18n="viewer.heading">Visualisation des données EEG</h1>
+                <div data-i18n-switcher></div>
+            </div>
+            <p id="filename" style="color: #64748b; margin-top: 0.5rem;"></p>
+            <div class="header-info">
+                <span><span data-i18n="viewer.duration">Durée :</span> <span id="duration">-</span></span>
+                <span><span data-i18n="viewer.points">Lignes :</span> <span id="points">-</span> <span data-i18n="viewer.points.unit">points de données</span></span>
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <a href="/" class="back-btn" data-i18n="viewer.back">← Retour au tableau de bord</a>
+            </div>
+        </div>
+
+        <!-- === PANNEAU DE FILTRAGE TEMPOREL === -->
+        <div class="time-filter-panel">
+            <div class="time-filter-title" data-i18n="filter.title">
+                Filtrage temporel
+            </div>
+            <div class="time-filter-controls">
+                <div class="filter-input-group">
+                    <label class="filter-label" for="t1Input" data-i18n="filter.t1">Temps de départ (t1) en secondes</label>
+                    <input type="number" id="t1Input" class="filter-input" placeholder="0" min="0" step="1">
+                </div>
+                <div class="filter-input-group">
+                    <label class="filter-label" for="t2Input" data-i18n="filter.t2">Temps d'arrivée (t2) en secondes</label>
+                    <input type="number" id="t2Input" class="filter-input" placeholder="Fin" min="0" step="1">
+                </div>
+                <button class="filter-btn" onclick="applyTimeFilter()" data-i18n="filter.apply">
+                    Appliquer le filtre
+                </button>
+                <button class="filter-btn reset" onclick="resetTimeFilter()" data-i18n="filter.reset">
+                    Réinitialiser
+                </button>
+            </div>
+            <div class="filter-info" id="filterInfo" data-i18n="filter.none">
+                Aucun filtre appliqué - Affichage de toutes les données
+            </div>
+        </div>
+
+        <!-- === PANNEAU REPLAY === -->
+        <div class="replay-panel" id="replayPanel" style="display: none;">
+            <div class="replay-title" data-i18n="replay.title">
+                ⏯ Replay temporel
+            </div>
+            <div class="replay-controls">
+                <div class="replay-btn-group">
+                    <button class="replay-btn" id="replayPlayBtn" data-i18n-attr="title:replay.play">▶</button>
+                    <button class="replay-btn secondary" id="replayStopBtn" data-i18n-attr="title:replay.stop">⏹</button>
+                </div>
+                <div class="replay-time">
+                    <span id="replayCurrentTime">0.0 s</span> / <span id="replayDuration">0.0 s</span>
+                </div>
+                <input type="range" id="replayProgress" class="replay-progress" min="0" max="1000" step="1" value="0">
+                <select class="replay-speed" id="replaySpeed" data-i18n-attr="title:replay.speed">
+                    <option value="0.5">0.5 ×</option>
+                    <option value="1" selected>1 ×</option>
+                    <option value="2">2 ×</option>
+                    <option value="4">4 ×</option>
+                    <option value="8">8 ×</option>
+                    <option value="16">16 ×</option>
+                </select>
+            </div>
+            <div class="replay-hint" data-i18n-html="replay.hint">
+                🖱 <strong>Zoom :</strong> molette de la souris sur un graphique &nbsp;•&nbsp;
+                <strong>Réinitialiser :</strong> double-clic sur un graphique &nbsp;•&nbsp;
+                <strong>Lecture / Pause :</strong> barre espace
+            </div>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loading" class="chart-card">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <!-- Error state -->
+        <div id="error" style="display: none;"></div>
+
+        <!-- Charts container -->
+        <div id="charts-container" style="display: none;">
+
+            <!-- 1. États cognitifs (Calm & Focus) -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.cognitive.title">États Cognitifs</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('cognitiveStatesChart', 'card.cognitive.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.cognitive.desc">Niveau de calme et de concentration dans le temps</p>
+                <div class="chart-container">
+                    <canvas id="cognitiveStatesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 2. Bandes de fréquences - Vue temporelle -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.bands.title">Bandes de Fréquences EEG</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('frequencyBandsChart', 'card.bands.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.bands.desc">Évolution des ondes cérébrales (Delta, Theta, Alpha, Beta, Gamma)</p>
+                <div class="chart-container tall">
+                    <canvas id="frequencyBandsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 3. Charge affective (Delta/Beta) -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.deltaBeta.title">Charge Affective</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('deltaBetaRatioChart', 'card.deltaBeta.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.deltaBeta.desc">Ratio Delta/Beta • élevé quand le sujet se déconnecte de l'activité cognitive (réseau par défaut)</p>
+                <div class="chart-container tall">
+                    <canvas id="deltaBetaRatioChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 3b. Charge cognitive (Theta/Alpha) -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.cognitiveLoad.title">Charge Cognitive</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('cognitiveLoadChart', 'card.cognitiveLoad.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.cognitiveLoad.desc">Ratio Theta/Alpha • augmente avec l'effort mental</p>
+                <div class="chart-container tall">
+                    <canvas id="cognitiveLoadChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 4. Ratios importants -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.ratios.title">Ratios Cognitifs</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('ratiosChart', 'card.ratios.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.ratios.desc">Alpha/Beta (stress) • Theta/Beta (baisse d'attention) • Activation globale</p>
+                <div class="chart-container tall">
+                    <canvas id="ratiosChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Puissances relatives -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.relative.title">Puissances Relatives des Bandes</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('relativePowersChart', 'card.relative.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.relative.desc">Distribution en pourcentage de chaque bande de fréquence</p>
+                <div class="chart-container tall">
+                    <canvas id="relativePowersChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 5. Métriques dérivées -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.derived.title">Métriques Cognitives Dérivées</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('derivedMetricsChart', 'card.derived.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.derived.desc">Charge cognitive • Engagement • Relaxation • Stress</p>
+                <div class="chart-container tall">
+                    <canvas id="derivedMetricsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 6. Asymétries EEG -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.asymmetry.title">Asymétries EEG (Émotion/Motivation)</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('asymmetriesChart', 'card.asymmetry.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.asymmetry.desc">Asymétrie frontale (F5-F6) • Centrale (C3-C4) • Pariétale (PO3-PO4)</p>
+                <div class="chart-container">
+                    <canvas id="asymmetriesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 7. Signaux EEG bruts -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h2 data-i18n="card.eegRaw.title">Signaux EEG Bruts</h2>
+                    <button class="save-chart-btn" data-i18n="viewer.save" onclick="saveChart('eegRawChart', 'card.eegRaw.file')">
+                        💾 Sauvegarder
+                    </button>
+                </div>
+                <p data-i18n="card.eegRaw.desc">Signaux bruts par électrode (8 canaux)</p>
+                <div class="chart-container extra-tall">
+                    <canvas id="eegRawChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/csv_viewer.js') }}"></script>
+</body>
+</html>

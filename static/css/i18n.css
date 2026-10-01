@@ -1,0 +1,79 @@
+/* ===============================================
+   NEUROSITY MONITOR - SÉLECTEUR DE LANGUE
+   Partagé par le tableau de bord, la configuration
+   et le visualiseur CSV.
+   =============================================== */
+
+/* Masque le contenu tant que la première traduction n'est pas appliquée
+   (uniquement lorsque la langue choisie diffère du français du HTML). */
+html[data-i18n-pending] body {
+  visibility: hidden;
+}
+
+.neuro_lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  user-select: none;
+}
+
+.neuro_lang-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.4rem 0.7rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  line-height: 1;
+}
+
+.neuro_lang-btn:hover:not(.neuro_lang-btn-active) {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.neuro_lang-btn-active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.neuro_lang-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Variante posée sur un fond coloré (visualiseur CSV) */
+.neuro_lang-switch-onDark {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.neuro_lang-switch-onDark .neuro_lang-btn {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.neuro_lang-switch-onDark .neuro_lang-btn:hover:not(.neuro_lang-btn-active) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Ligne "Langue" dans le formulaire de configuration */
+.neuro_lang-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}

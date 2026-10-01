@@ -1,23 +1,27 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Neurosity Crown Monitor</title>
-    
-    <!-- Preconnect pour optimiser les performances -->
+    <title data-i18n="index.title">Tableau de bord - Neurosity Crown Monitor</title>
+
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Meta tags -->
-    <meta name="description" content="Monitor en temps réel pour casque Neurosity Crown - Visualisation des ondes cérébrales">
+    <meta name="description" content="Monitor en temps réel pour casque Neurosity Crown" data-i18n-attr="content:index.meta.description">
     <meta name="theme-color" content="#6366f1">
 
     <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/i18n.css') }}">
+
+    <!-- i18n : doit être chargé avant tout autre script applicatif -->
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 </head>
 <body>
     <!-- Loader initial -->
@@ -25,7 +29,7 @@
         <div class="neuro_loader-content">
             <div class="neuro_loader-logo">Neurosity</div>
             <div class="neuro_loader-spinner"></div>
-            <div class="neuro_loader-text">Chargement de l'interface...</div>
+            <div class="neuro_loader-text" data-i18n="index.loader">Chargement de l'interface...</div>
         </div>
     </div>
 
@@ -38,35 +42,44 @@
                 <!-- Statut de connexion -->
                 <div class="neuro_status-indicator">
                     <div class="neuro_status-dot neuro_status-disconnected" id="connectionStatus"></div>
-                    <span id="connectionText">Déconnecté</span>
+                    <span id="connectionText" data-i18n="status.disconnected">Déconnecté</span>
                 </div>
 
                 <!-- Statut du dispositif -->
                 <div class="neuro_status-indicator" id="deviceStatusIndicator" style="display: none;">
                     <div class="neuro_status-dot neuro_status-disconnected" id="deviceStatusDot"></div>
-                    <span id="deviceStatusText">Dispositif</span>
+                    <span id="deviceStatusText" data-i18n="index.device">Dispositif</span>
                 </div>
 
                 <!-- Statut d'enregistrement -->
                 <div class="neuro_status-indicator neuro_recording-active" id="recordingStatus" style="display: none;">
                     <div class="neuro_status-dot neuro_status-recording"></div>
-                    <span>🔴 Enregistrement...</span>
+                    <span>🔴 <span data-i18n="index.recording">Enregistrement...</span></span>
                 </div>
 
+                <!-- Sélecteur de langue -->
+                <div data-i18n-switcher></div>
+
+                <!-- Bouton Configuration -->
+                <a href="/settings" class="neuro_btn neuro_btn-outline" data-i18n-attr="title:btn.settings.title">
+                    <span>⚙️</span>
+                    <span class="neuro_btn-text" data-i18n="btn.settings">Configuration</span>
+                </a>
+
                 <!-- Boutons de contrôle -->
-                <button class="neuro_btn neuro_btn-primary" id="connectBtn" onclick="connectDevice()" title="Connecter (Ctrl+K)">
+                <button class="neuro_btn neuro_btn-primary" id="connectBtn" onclick="connectDevice()" data-i18n-attr="title:btn.connect.title">
                     <span>🔗</span>
-                    <span class="neuro_btn-text">Connecter</span>
+                    <span class="neuro_btn-text" data-i18n="btn.connect">Connecter</span>
                 </button>
 
-                <button class="neuro_btn neuro_btn-success" id="recordBtn" onclick="toggleRecording()" disabled title="Enregistrer (Ctrl+R)">
-                    <span>⏺️</span>
-                    <span class="neuro_btn-text">Enregistrer</span>
+                <button class="neuro_btn neuro_btn-success" id="recordBtn" onclick="toggleRecording()" disabled data-i18n-attr="title:btn.record.title">
+                    <span>▶️</span>
+                    <span class="neuro_btn-text" data-i18n="btn.record">Enregistrer</span>
                 </button>
 
-                <button class="neuro_btn neuro_btn-outline" id="downloadBtn" onclick="downloadData()" disabled title="Télécharger">
+                <button class="neuro_btn neuro_btn-outline" id="downloadBtn" onclick="downloadData()" disabled data-i18n-attr="title:btn.download.title">
                     <span>⬇️</span>
-                    <span class="neuro_btn-text">Télécharger</span>
+                    <span class="neuro_btn-text" data-i18n="btn.download">Télécharger</span>
                 </button>
             </div>
         </div>
@@ -79,7 +92,7 @@
             <div class="neuro_metrics-container">
                 <!-- Métrique Calme -->
                 <div class="neuro_metric-card">
-                    <div class="neuro_progress-label">Calme</div>
+                    <div class="neuro_progress-label" data-i18n="metric.calm">Calme</div>
                     <div class="neuro_circular-progress">
                         <svg>
                             <defs>
@@ -98,7 +111,7 @@
 
                 <!-- Métrique Concentration -->
                 <div class="neuro_metric-card">
-                    <div class="neuro_progress-label">Concentration</div>
+                    <div class="neuro_progress-label" data-i18n="metric.focus">Concentration</div>
                     <div class="neuro_circular-progress">
                         <svg>
                             <defs>
@@ -119,8 +132,8 @@
             <!-- Graphique des ondes cérébrales -->
             <div class="neuro_charts-container">
                 <div class="neuro_chart-card">
-                    <h3 class="neuro_card-title">Ondes Cérébrales en Temps Réel</h3>
-                    <div class="neuro_timestamp" id="brainwavesTimestamp">Dernière mise à jour: --</div>
+                    <h3 class="neuro_card-title" data-i18n="chart.brainwaves.title">Ondes Cérébrales en Temps Réel</h3>
+                    <div class="neuro_timestamp" id="brainwavesTimestamp"></div>
                     <div class="neuro_chart-container">
                         <canvas id="brainwavesChart"></canvas>
                     </div>
@@ -129,8 +142,8 @@
 
             <!-- Signaux EEG Bruts -->
             <div class="neuro_chart-card neuro_eeg-raw-card">
-                <h3 class="neuro_card-title">Signaux EEG Bruts</h3>
-                <div class="neuro_timestamp" id="eegRawTimestamp">Dernière mise à jour: --</div>
+                <h3 class="neuro_card-title" data-i18n="chart.eegRaw.title">Signaux EEG Bruts</h3>
+                <div class="neuro_timestamp" id="eegRawTimestamp"></div>
                 <div class="neuro_eeg-raw-container">
                     <canvas id="eegRawChart"></canvas>
                 </div>
@@ -141,12 +154,12 @@
                 <!-- Sessions Enregistrées -->
                 <div class="neuro_card neuro_sessions-card neuro_sessions-card-fixed">
                     <div class="neuro_card-header">
-                        <h3 class="neuro_card-title">Sessions Enregistrées</h3>
-                        <div class="neuro_sessions-counter" id="sessionsCounter">0 session(s)</div>
+                        <h3 class="neuro_card-title" data-i18n="sessions.title">Sessions Enregistrées</h3>
+                        <div class="neuro_sessions-counter" id="sessionsCounter" data-i18n="sessions.count.zero">Aucune session</div>
                     </div>
 
                     <div class="neuro_sessions-scroll-container">
-                        <div id="sessionsList" class="neuro_sessions-empty">
+                        <div id="sessionsList" class="neuro_sessions-empty" data-i18n="sessions.emptyHint">
                             Connectez votre casque pour voir les sessions
                         </div>
                     </div>
@@ -156,47 +169,47 @@
                             <span class="neuro_sessions-stat">
                                 <span class="neuro_stat-icon">📊</span>
                                 <span class="neuro_stat-value" id="totalSessions">0</span>
-                                <span class="neuro_stat-label">sessions</span>
+                                <span class="neuro_stat-label" data-i18n="sessions.stat.sessions">sessions</span>
                             </span>
                             <span class="neuro_sessions-stat">
                                 <span class="neuro_stat-icon">💾</span>
                                 <span class="neuro_stat-value" id="totalSize">0 MB</span>
-                                <span class="neuro_stat-label">stockés</span>
+                                <span class="neuro_stat-label" data-i18n="sessions.stat.stored">stockés</span>
                             </span>
                         </div>
 
                         <button class="neuro_btn neuro_btn-outline neuro_sessions-refresh-btn" onclick="refreshSessions()">
                             <span>🔄</span>
-                            <span class="neuro_btn-text">Actualiser</span>
+                            <span class="neuro_btn-text" data-i18n="sessions.refresh">Actualiser</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Statut Système -->
                 <div class="neuro_card neuro_status-card">
-                    <h3 class="neuro_card-title">Statut du Système</h3>
+                    <h3 class="neuro_card-title" data-i18n="system.title">Statut du Système</h3>
 
                     <div class="neuro_status-grid">
                         <div class="neuro_status-item">
                             <div class="neuro_status-label">
                                 <span>🔗</span>
-                                État de la connexion
+                                <span data-i18n="system.connection">État de la connexion</span>
                             </div>
-                            <div class="neuro_status-value" id="systemConnectionStatus">Déconnecté</div>
+                            <div class="neuro_status-value" id="systemConnectionStatus" data-i18n="status.disconnected">Déconnecté</div>
                         </div>
 
                         <div class="neuro_status-item">
                             <div class="neuro_status-label">
                                 <span>🎯</span>
-                                Monitoring actif
+                                <span data-i18n="system.monitoring">Monitoring actif</span>
                             </div>
-                            <div class="neuro_status-value" id="systemMonitoringStatus">Arrêté</div>
+                            <div class="neuro_status-value" id="systemMonitoringStatus" data-i18n="system.stopped">Arrêté</div>
                         </div>
 
                         <div class="neuro_status-item">
                             <div class="neuro_status-label">
                                 <span>🔋</span>
-                                Batterie
+                                <span data-i18n="system.battery">Batterie</span>
                             </div>
                             <div class="neuro_status-value" id="systemBattery">
                                 <span class="battery-medium">🔋 -- --</span>
@@ -206,8 +219,8 @@
 
                     <!-- Signal Quality -->
                     <div class="neuro_signal-quality-section">
-                        <div class="neuro_status-label" style="margin-bottom: 1.5rem; font-size: 1rem; font-weight: 600; color: #1e293b;">
-                            Signal Quality
+                        <div class="neuro_status-label" style="margin-bottom: 1.5rem; font-size: 1rem; font-weight: 600; color: #1e293b;" data-i18n="signal.title">
+                            Qualité du Signal
                         </div>
                         <div class="neuro_electrode-map-modern">
                             <svg viewBox="0 0 300 300" class="neuro_brain-svg">
@@ -281,7 +294,7 @@
         <div class="neuro_footer-content">
             Neurosity Crown Monitor
             <span class="neuro_footer-separator">•</span>
-            Monitoring en temps réel
+            <span data-i18n="footer.tagline">Monitoring en temps réel</span>
             <span class="neuro_footer-separator">•</span>
             <span id="currentTime"></span>
         </div>
@@ -290,7 +303,7 @@
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    
+
     <!-- Application JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

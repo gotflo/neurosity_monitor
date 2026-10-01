@@ -85,6 +85,12 @@ body.neuro_loaded {
   margin: 0 auto 1rem;
 }
 
+.neuro_loader-text {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
 /* Navigation */
 .neuro_navbar {
   background: var(--bg-card);
@@ -137,6 +143,7 @@ body.neuro_loaded {
   font-family: inherit;
   position: relative;
   user-select: none;
+  text-decoration: none;
 }
 
 .neuro_btn:hover:not(:disabled) {
@@ -158,16 +165,28 @@ body.neuro_loaded {
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
 }
 
+.neuro_btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
 .neuro_btn-success {
   background: linear-gradient(135deg, var(--success), #34d399);
   color: white;
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
 }
 
+.neuro_btn-success:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
 .neuro_btn-danger {
   background: linear-gradient(135deg, var(--danger), #f87171);
   color: white;
   box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+}
+
+.neuro_btn-danger:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
 }
 
 .neuro_btn-outline {
@@ -185,6 +204,18 @@ body.neuro_loaded {
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
   gap: 0.5rem;
+}
+
+/* Bouton de visualisation spécifique */
+.neuro_btn-primary.neuro_btn-small {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.neuro_btn-primary.neuro_btn-small:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 /* Indicateurs de statut */
@@ -412,6 +443,10 @@ body.neuro_loaded {
    SESSIONS
    =============================================== */
 
+.neuro_sessions-card {
+  position: relative;
+}
+
 .neuro_sessions-card-fixed {
   height: 500px;
   display: flex;
@@ -459,13 +494,35 @@ body.neuro_loaded {
   background: var(--bg-card);
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   animation: neuro_fadeIn 0.3s ease;
+  gap: 1rem;
 }
 
 .neuro_session-item:hover {
   transform: translateX(4px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.neuro_session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.neuro_session-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neuro_session-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .neuro_sessions-empty {
@@ -478,21 +535,45 @@ body.neuro_loaded {
   border: 2px dashed var(--border-color);
 }
 
+.neuro_sessions-footer {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .neuro_sessions-stats {
   display: flex;
-  justify-content: space-around;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: rgba(248, 250, 252, 0.5);
-  border-radius: var(--radius);
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .neuro_sessions-stat {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  flex: 1;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.neuro_stat-icon {
+  font-size: 1rem;
+}
+
+.neuro_stat-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.neuro_stat-label {
+  color: var(--text-secondary);
+}
+
+.neuro_sessions-refresh-btn {
+  flex-shrink: 0;
 }
 
 /* ===============================================
@@ -519,6 +600,27 @@ body.neuro_loaded {
   border: 1px solid var(--border-color);
 }
 
+.neuro_status-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.neuro_status-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+/* Signal Quality Section */
+.neuro_signal-quality-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
 /* Électrodes SVG */
 .neuro_electrode-map-modern {
   position: relative;
@@ -526,6 +628,11 @@ body.neuro_loaded {
   max-width: 320px;
   margin: 0 auto;
   padding: 1rem 0;
+}
+
+.neuro_brain-svg {
+  width: 100%;
+  height: auto;
 }
 
 .neuro_electrode-svg {
@@ -557,15 +664,44 @@ body.neuro_loaded {
   fill: #dc3545;
 }
 
+.neuro_electrode-svg-label {
+  fill: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-anchor: middle;
+  font-family: 'Inter', sans-serif;
+}
+
+.neuro_electrode-svg-value {
+  fill: var(--text-secondary);
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-anchor: middle;
+  font-family: 'Inter', sans-serif;
+}
+
 /* ===============================================
    BATTERIE
    =============================================== */
 
-.battery-good { color: #10b981; }
-.battery-medium { color: #f59e0b; }
+.battery-good {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.battery-medium {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
 .battery-low {
   color: #ef4444;
+  font-weight: 600;
   animation: battery-blink 2s infinite;
+}
+
+.battery-charging {
+  position: relative;
 }
 
 .battery-charging::after {
@@ -594,6 +730,19 @@ body.neuro_loaded {
 
 .neuro_hidden {
   display: none !important;
+}
+
+.neuro_footer-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.neuro_footer-separator {
+  color: var(--text-secondary);
+  opacity: 0.5;
 }
 
 .neuro_app-footer {
@@ -642,27 +791,71 @@ body.neuro_loaded {
    =============================================== */
 
 @media (max-width: 1024px) {
-  .neuro_container { padding: 1.5rem; }
-  .neuro_dashboard-grid { grid-template-columns: 1fr; }
-  .neuro_eeg-raw-container { height: 500px; }
+  .neuro_container {
+    padding: 1.5rem;
+  }
+  
+  .neuro_dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .neuro_eeg-raw-container {
+    height: 500px;
+  }
+  
+  .neuro_metrics-container {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
-  .neuro_navbar { padding: 1rem; }
+  .neuro_navbar {
+    padding: 1rem;
+  }
+  
   .neuro_nav-container {
     flex-direction: column;
     text-align: center;
   }
+  
   .neuro_nav-controls {
     width: 100%;
     justify-content: center;
   }
-  .neuro_container { padding: 1rem; }
-  .neuro_metrics-container { grid-template-columns: 1fr; }
-  .neuro_card { padding: 1.5rem; }
-  .neuro_chart-container { height: 300px; }
-  .neuro_sessions-card-fixed { height: 400px; }
-  .neuro_eeg-raw-container { height: 400px; }
+  
+  .neuro_container {
+    padding: 1rem;
+  }
+  
+  .neuro_metrics-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .neuro_card {
+    padding: 1.5rem;
+  }
+  
+  .neuro_chart-container {
+    height: 300px;
+  }
+  
+  .neuro_sessions-card-fixed {
+    height: 400px;
+  }
+  
+  .neuro_eeg-raw-container {
+    height: 400px;
+  }
+  
+  .neuro_session-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .neuro_session-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 480px) {
@@ -670,23 +863,60 @@ body.neuro_loaded {
     padding: 0.6rem 1rem;
     font-size: 0.75rem;
   }
-  .neuro_btn-text { display: none; }
+  
+  .neuro_btn-text {
+    display: none;
+  }
+  
   .neuro_circular-progress {
     width: 120px;
     height: 120px;
   }
-  .neuro_progress-value { font-size: 1.5rem; }
+  
+  .neuro_progress-value {
+    font-size: 1.5rem;
+  }
+  
   .neuro_status-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
   }
+  
   .neuro_session-item {
-    flex-direction: column;
-    gap: 1rem;
+    padding: 0.75rem;
   }
-  .neuro_electrode-map-modern { max-width: 280px; }
-  .neuro_eeg-raw-container { height: 300px; }
+  
+  .neuro_session-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .neuro_session-actions .neuro_btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .neuro_electrode-map-modern {
+    max-width: 280px;
+  }
+  
+  .neuro_eeg-raw-container {
+    height: 300px;
+  }
+  
+  .neuro_sessions-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .neuro_sessions-stats {
+    justify-content: space-around;
+  }
+  
+  .neuro_sessions-refresh-btn {
+    width: 100%;
+  }
 }
 
 /* Focus pour accessibilité */
@@ -702,12 +932,20 @@ body.neuro_loaded {
   .neuro_btn {
     display: none !important;
   }
+  
+  .neuro_card {
+    page-break-inside: avoid;
+  }
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

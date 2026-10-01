@@ -54,12 +54,12 @@ const SocketManager = {
     // Connexion
     this.socket.on('connect', () => {
       console.log('WebSocket connecté');
-      UI.showToast('Connexion WebSocket établie', 'success', 3000);
+      UI.showToast(t('toast.ws.connected'), 'success', 3000);
     });
 
     this.socket.on('disconnect', () => {
       console.log('WebSocket déconnecté');
-      UI.showToast('🔌 Connexion WebSocket perdue', 'warning', 3000);
+      UI.showToast(t('toast.ws.lost'), 'warning', 3000);
     });
 
     // Données temps réel
@@ -79,20 +79,20 @@ const SocketManager = {
     });
 
     this.socket.on('monitoring_started', () => {
-      UI.showToast('Monitoring démarré !', 'success');
+      UI.showToast(t('toast.monitoring.started'), 'success');
       NeuroApp.state.isMonitoring = true;
       UI.updateMonitoringStatus(true);
     });
 
     this.socket.on('monitoring_stopped', () => {
-      UI.showToast('Monitoring arrêté', 'info');
+      UI.showToast(t('toast.monitoring.stopped'), 'info');
       NeuroApp.state.isMonitoring = false;
       UI.updateMonitoringStatus(false);
     });
 
     // Erreurs
     this.socket.on('error', (data) => {
-      UI.showToast(`❌ Erreur: ${data.message}`, 'error');
+      UI.showToast(t('toast.error', { message: I18n.fromServer(data, 'toast.unknownError') }), 'error');
     });
   },
 
@@ -120,25 +120,54 @@ const DataHandler = {
   handleBrainwavesData(data) {
     if (!NeuroApp.state.isConnected || !NeuroApp.state.charts.brainwaves) return;
 
-    const powerData = ['delta', 'theta', 'alpha', 'beta', 'gamma'].map(
-      wave => Math.min(data[wave] || 0, 20)
-    );
+    // CORRECTION: Calculer la moyenne des 8 valeurs (une par électrode) pour chaque bande
+    const powerData = ['delta', 'theta', 'alpha', 'beta', 'gamma'].map(wave => {
+      if (data[wave] && Array.isArray(data[wave]) && data[wave].length === 8) {
+        // Calculer la moyenne des 8 électrodes
+        const sum = data[wave].reduce((acc, val) => acc + val, 0);
+        const average = sum / data[wave].length;
+        return Math.min(average, 20); // Limiter à 20 pour l'échelle du graphique
+      } else {
+        // Ancien format ou erreur - traiter comme une valeur unique
+        return Math.min(data[wave] || 0, 20);
+      }
+    });
 
+    // Mettre à jour le graphique
     NeuroApp.state.charts.brainwaves.data.datasets[0].data = powerData;
     NeuroApp.state.charts.brainwaves.update('none');
 
-    document.getElementById('brainwavesTimestamp').textContent =
-      'Dernière mise à jour: ' + Utils.formatTimestamp(data.timestamp);
+    // Mettre à jour le timestamp
+    UI.updateLastUpdate('brainwavesTimestamp', data.timestamp);
 
+    // Effet visuel
     UI.flashIndicator('brainwaves');
+
+    // Debug optionnel (visible dans la console du navigateur)
+    console.debug('🧠 Brainwaves:', {
+      delta: data.delta ? `${data.delta.length} valeurs` : 'absent',
+      theta: data.theta ? `${data.theta.length} valeurs` : 'absent',
+      alpha: data.alpha ? `${data.alpha.length} valeurs` : 'absent',
+      beta: data.beta ? `${data.beta.length} valeurs` : 'absent',
+      gamma: data.gamma ? `${data.gamma.length} valeurs` : 'absent',
+      moyennes_affichées: powerData
+    });
   },
 
-  handleSignalQualityData(data) {
+handleSignalQualityData(data) {
     if (!NeuroApp.state.isConnected) return;
 
-    ['F5', 'F6', 'C3', 'C4', 'CP3', 'CP4', 'PO3', 'PO4'].forEach(electrode => {
+    // Log pour voir les données reçues
+    console.debug('📡 Signal Quality reçu:', data);
+
+    // Liste des électrodes
+    const electrodes = ['F5', 'F6', 'C3', 'C4', 'CP3', 'CP4', 'PO3', 'PO4'];
+
+    electrodes.forEach(electrode => {
       if (data[electrode] !== undefined) {
         UI.updateElectrodeQuality(electrode, data[electrode]);
+      } else {
+        console.warn(`Électrode ${electrode} manquante dans les données`);
       }
     });
 
@@ -150,8 +179,7 @@ const DataHandler = {
 
     NeuroApp.state.charts.eegRaw.updateData(data.raw_data, data.info);
 
-    document.getElementById('eegRawTimestamp').textContent =
-      'Dernière mise à jour: ' + Utils.formatTimestamp(data.timestamp);
+    UI.updateLastUpdate('eegRawTimestamp', data.timestamp);
 
     UI.flashIndicator('eeg_raw');
   }
@@ -329,6 +357,30 @@ class EEGRawChart {
 // ===============================================
 
 const UI = {
+  /**
+   * Fabrique un fragment traduisible : le texte est rendu tout de suite et
+   * l'attribut data-i18n permet de le retraduire au changement de langue.
+   */
+  i18nSpan(key, className = '') {
+    const cls = className ? ` class="${className}"` : '';
+    return `<span${cls} data-i18n="${key}">${t(key)}</span>`;
+  },
+
+  /**
+   * Met à jour un horodatage « Dernière mise à jour » de façon traduisible.
+   * La date brute est conservée pour pouvoir reformater au changement de langue.
+   */
+  updateLastUpdate(elementId, timestamp) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    if (timestamp) el.dataset.timestamp = timestamp;
+    const raw = el.dataset.timestamp;
+    if (!raw) return;
+
+    el.textContent = t('chart.lastUpdate', { value: I18n.formatTime(raw) });
+  },
+
   showToast(message, type = 'info', duration = 4000) {
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -406,8 +458,8 @@ const UI = {
     const connectBtn = document.getElementById('connectBtn');
     if (connectBtn) {
       connectBtn.innerHTML = connected ?
-        '<span>🔌</span><span class="neuro_btn-text">Déconnecter</span>' :
-        '<span>🔗</span><span class="neuro_btn-text">Connecter</span>';
+        '<span>🔌</span>' + this.i18nSpan('btn.disconnect', 'neuro_btn-text') :
+        '<span>🔗</span>' + this.i18nSpan('btn.connect', 'neuro_btn-text');
       connectBtn.className = connected ?
         'neuro_btn neuro_btn-danger' :
         'neuro_btn neuro_btn-primary';
@@ -421,7 +473,9 @@ const UI = {
       connectionStatus.className = connected ?
         'neuro_status-dot neuro_status-connected' :
         'neuro_status-dot neuro_status-disconnected';
-      connectionText.textContent = connected ? 'Connecté' : 'Déconnecté';
+      const connectionKey = connected ? 'status.connected' : 'status.disconnected';
+      connectionText.setAttribute('data-i18n', connectionKey);
+      connectionText.textContent = t(connectionKey);
     }
 
     // Bouton d'enregistrement
@@ -429,8 +483,8 @@ const UI = {
     if (recordBtn) {
       recordBtn.disabled = !connected;
       recordBtn.innerHTML = recording ?
-        '<span>⏹️</span><span class="neuro_btn-text">Arrêter</span>' :
-        '<span>⏺️</span><span class="neuro_btn-text">Enregistrer</span>';
+        '<span>⏹️</span>' + this.i18nSpan('btn.recordStop', 'neuro_btn-text') :
+        '<span>⏺️</span>' + this.i18nSpan('btn.record', 'neuro_btn-text');
       recordBtn.className = recording ?
         'neuro_btn neuro_btn-danger' :
         'neuro_btn neuro_btn-success';
@@ -469,6 +523,8 @@ const UI = {
           statusText += ` ${batteryIcon} ${deviceStatus.battery}%`;
         }
 
+        // Valeur dynamique : on retire la clé statique pour ne pas l'écraser
+        deviceText.removeAttribute('data-i18n');
         deviceText.textContent = statusText;
       } else {
         deviceIndicator.style.display = 'none';
@@ -527,50 +583,69 @@ const UI = {
     }
 
     if (timestampEl) {
-      timestampEl.textContent = Utils.formatTimestamp(timestamp) + ' ✓';
+      if (timestamp) timestampEl.dataset.timestamp = timestamp;
+      timestampEl.textContent = I18n.formatTime(timestampEl.dataset.timestamp) + ' ✓';
     }
   },
 
   updateSystemStatus(connected, monitoring) {
-    document.getElementById('systemConnectionStatus').textContent =
-      connected ? 'Connecté' : 'Déconnecté';
-
-    document.getElementById('systemMonitoringStatus').textContent =
-      monitoring ? 'Actif' : 'Arrêté';
-  },
-
-  updateElectrodeQuality(electrode, quality) {
-    const electrodeEl = document.querySelector(`[data-electrode="${electrode}"]`);
-    if (!electrodeEl) return;
-
-    const percentage = Math.round(quality * 100);
-    const valueEl = electrodeEl.querySelector('.neuro_electrode-svg-value');
-    if (valueEl) {
-      valueEl.textContent = `${percentage}%`;
-    }
-
-    electrodeEl.classList.remove('neuro_quality-good', 'neuro_quality-medium', 'neuro_quality-poor');
-    electrodeEl.classList.add(
-      quality >= 0.90 ? 'neuro_quality-good' :
-      quality >= 0.50 ? 'neuro_quality-medium' :
-      'neuro_quality-poor'
-    );
-  },
-
-  flashIndicator(type) {
-    const elements = {
-      'calm': '.neuro_metric-card:nth-child(1)',
-      'focus': '.neuro_metric-card:nth-child(2)',
-      'brainwaves': '.neuro_chart-card',
-      'signal_quality': '.neuro_signal-quality-section',
-      'eeg_raw': '.neuro_eeg-raw-card'
+    const setKey = (id, key) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.setAttribute('data-i18n', key);
+      el.textContent = t(key);
     };
 
-    const element = document.querySelector(elements[type]);
-    if (element) {
-      element.style.boxShadow = '0 0 20px rgba(139, 92, 246, 0.4)';
-      setTimeout(() => element.style.boxShadow = '', 300);
+    setKey('systemConnectionStatus', connected ? 'status.connected' : 'status.disconnected');
+    setKey('systemMonitoringStatus', monitoring ? 'system.active' : 'system.stopped');
+  },
+
+ updateElectrodeQuality(electrode, qualityData) {
+    const electrodeEl = document.querySelector(`[data-electrode="${electrode}"]`);
+    if (!electrodeEl) {
+      console.warn(`Élément DOM pour électrode ${electrode} non trouvé`);
+      return;
     }
+
+    // Extraire le status et la déviation standard
+    const status = qualityData.status || 'noContact';
+    const standardDeviation = qualityData.standardDeviation || 0;
+
+    // Log pour debug
+    console.debug(`Électrode ${electrode}: status=${status}, stdDev=${standardDeviation}`);
+
+    // Mettre à jour le texte de pourcentage basé sur le status
+    const valueEl = electrodeEl.querySelector('.neuro_electrode-svg-value');
+    if (valueEl) {
+      // Mapping status → pourcentage visuel
+      const displayText = {
+        'great': '100%',
+        'good': '75%',
+        'bad': '25%',
+        'noContact': '0%'
+      };
+      valueEl.textContent = displayText[status] || '0%';
+    }
+
+    // Supprimer toutes les classes de qualité existantes
+    electrodeEl.classList.remove('neuro_quality-good', 'neuro_quality-medium', 'neuro_quality-poor');
+
+    // Appliquer la classe appropriée selon le status
+    // great → vert (neuro_quality-good)
+    // good → jaune (neuro_quality-medium)
+    // bad → rouge (neuro_quality-poor)
+    // noContact → rouge (neuro_quality-poor)
+    const qualityClass = {
+      'great': 'neuro_quality-good',
+      'good': 'neuro_quality-medium',
+      'bad': 'neuro_quality-poor',
+      'noContact': 'neuro_quality-poor'
+    };
+
+    const classToAdd = qualityClass[status] || 'neuro_quality-poor';
+    electrodeEl.classList.add(classToAdd);
+
+    console.debug(`Électrode ${electrode} classe appliquée: ${classToAdd}`);
   },
 
   hideLoader() {
@@ -592,10 +667,10 @@ const DeviceManager = {
     const connectBtn = document.getElementById('connectBtn');
     if (connectBtn) {
       connectBtn.disabled = true;
-      connectBtn.innerHTML = '<span class="neuro_btn-text">Connexion...</span>';
+      connectBtn.innerHTML = UI.i18nSpan('btn.connecting', 'neuro_btn-text');
     }
 
-    UI.showToast('Connexion au casque Neurosity...', 'info', 3000);
+    UI.showToast(t('toast.connecting'), 'info', 3000);
 
     try {
       const response = await fetch('/connect', {
@@ -606,7 +681,7 @@ const DeviceManager = {
       const data = await response.json();
 
       if (data.success) {
-        UI.showToast(data.message || 'Casque connecté !', 'success');
+        UI.showToast(I18n.fromServer(data, 'toast.connected'), 'success');
         UI.updateConnectionStatus(true, false, false);
         UI.updateDeviceStatus(data.device_status || {});
 
@@ -617,11 +692,11 @@ const DeviceManager = {
           }
         }, 1000);
       } else {
-        UI.showToast(data.error || 'Erreur de connexion', 'error', 8000);
+        UI.showToast(I18n.fromServer(data, 'toast.connectError'), 'error', 8000);
       }
     } catch (error) {
       console.error('Erreur connexion:', error);
-      UI.showToast('Erreur réseau', 'error');
+      UI.showToast(t('toast.networkError'), 'error');
     } finally {
       if (connectBtn) {
         connectBtn.disabled = false;
@@ -630,7 +705,7 @@ const DeviceManager = {
   },
 
   async disconnect() {
-    if (!confirm('Êtes-vous sûr de vouloir déconnecter le casque ?')) return;
+    if (!confirm(t('confirm.disconnect'))) return;
 
     try {
       const response = await fetch('/disconnect', {
@@ -641,7 +716,7 @@ const DeviceManager = {
       const data = await response.json();
 
       if (data.success) {
-        UI.showToast('🔌 Casque déconnecté', 'success');
+        UI.showToast(t('toast.disconnected'), 'success');
 
         if (NeuroApp.state.isMonitoring) {
           SocketManager.emit('stop_monitoring');
@@ -665,7 +740,7 @@ const DeviceManager = {
       }
     } catch (error) {
       console.error('Erreur déconnexion:', error);
-      UI.showToast('Erreur réseau', 'error');
+      UI.showToast(t('toast.networkError'), 'error');
     }
   }
 };
@@ -677,14 +752,16 @@ const DeviceManager = {
 const RecordingManager = {
   async toggle() {
     if (!NeuroApp.state.isConnected) {
-      UI.showToast('Connectez d\'abord votre casque', 'warning');
+      UI.showToast(t('toast.connectFirst'), 'warning');
       return;
     }
 
     const endpoint = NeuroApp.state.isRecording ? '/stop_recording' : '/start_recording';
-    const action = NeuroApp.state.isRecording ? 'Arrêt' : 'Démarrage';
 
-    UI.showToast(`🎬 ${action} de l'enregistrement...`, 'info');
+    UI.showToast(
+      t(NeuroApp.state.isRecording ? 'toast.recording.stopping' : 'toast.recording.starting'),
+      'info'
+    );
 
     try {
       const response = await fetch(endpoint, {
@@ -698,7 +775,7 @@ const RecordingManager = {
       if (result.success) {
         NeuroApp.state.isRecording = result.recording;
         UI.showToast(
-          NeuroApp.state.isRecording ? 'Enregistrement démarré !' : 'Enregistrement arrêté',
+          t(NeuroApp.state.isRecording ? 'toast.recording.started' : 'toast.recording.stopped'),
           'success'
         );
 
@@ -712,17 +789,17 @@ const RecordingManager = {
           NeuroApp.state.isMonitoring
         );
       } else {
-        UI.showToast('Erreur: ' + (result.error || 'Erreur inconnue'), 'error');
+        UI.showToast(t('toast.error', { message: I18n.fromServer(result, 'toast.unknownError') }), 'error');
       }
     } catch (error) {
       console.error('Erreur enregistrement:', error);
-      UI.showToast('Erreur réseau', 'error');
+      UI.showToast(t('toast.networkError'), 'error');
     }
   },
 
   async download() {
     try {
-      UI.showToast('Recherche de la dernière session...', 'info');
+      UI.showToast(t('toast.searchingSession'), 'info');
 
       const response = await fetch('/sessions');
       const data = await response.json();
@@ -736,13 +813,13 @@ const RecordingManager = {
         link.click();
         document.body.removeChild(link);
 
-        UI.showToast(`Téléchargement: ${latestSession}`, 'success');
+        UI.showToast(t('toast.downloading', { file: latestSession }), 'success');
       } else {
-        UI.showToast('Aucune session disponible', 'warning');
+        UI.showToast(t('toast.noSession'), 'warning');
       }
     } catch (error) {
       console.error('Erreur téléchargement:', error);
-      UI.showToast('Erreur téléchargement', 'error');
+      UI.showToast(t('toast.downloadError'), 'error');
     }
   }
 };
@@ -760,7 +837,7 @@ const SessionsManager = {
     } catch (error) {
       console.error('Erreur chargement sessions:', error);
       document.getElementById('sessionsList').innerHTML =
-        '<p style="color: #ef4444;">Erreur de chargement</p>';
+        `<p style="color: #ef4444;" data-i18n="sessions.loadError">${t('sessions.loadError')}</p>`;
     }
   },
 
@@ -773,9 +850,9 @@ const SessionsManager = {
     // Mise à jour du compteur
     const counter = document.getElementById('sessionsCounter');
     if (counter) {
-      counter.textContent = sessions.length === 0 ?
-        'Aucune session' :
-        `${sessions.length} session${sessions.length > 1 ? 's' : ''}`;
+      // Valeur interpolée : retraduite via un rendu complet au changement de langue
+      counter.removeAttribute('data-i18n');
+      counter.textContent = I18n.plural('sessions.count', sessions.length);
     }
 
     // Mise à jour des statistiques
@@ -786,24 +863,24 @@ const SessionsManager = {
     if (sessions.length === 0) {
       sessionsList.innerHTML = `
         <div class="neuro_sessions-empty">
-          Aucune session enregistrée
-          <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">
-            Connectez votre casque pour créer une session
+          <span data-i18n="sessions.empty">${t('sessions.empty')}</span>
+          <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;" data-i18n="sessions.emptyCreate">
+            ${t('sessions.emptyCreate')}
           </div>
         </div>
       `;
       return;
     }
 
-    // Afficher les sessions
+    // Afficher les sessions avec bouton de visualisation
     sessionsList.innerHTML = sessions.map((session, index) => {
       const dateMatch = session.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
-      let displayDate = 'Session';
+      let displayDate = '';
       let displayTime = '';
 
       if (dateMatch) {
         const [, year, month, day, hour, minute] = dateMatch;
-        displayDate = `${day}/${month}/${year}`;
+        displayDate = I18n.formatDate(year, month, day);
         displayTime = `${hour}:${minute}`;
       }
 
@@ -813,13 +890,20 @@ const SessionsManager = {
             <div class="neuro_session-name">${session}</div>
             <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
               <span>📅 ${displayDate}</span>
-              <span style="margin-left: 1rem;">🕒 ${displayTime}</span>
+              <span style="margin-left: 1rem;">🕐 ${displayTime}</span>
             </div>
           </div>
           <div class="neuro_session-actions">
-            <button class="neuro_btn neuro_btn-outline neuro_btn-small" 
+            <button class="neuro_btn neuro_btn-primary neuro_btn-small"
+                    onclick="SessionsManager.visualize('${session}')"
+                    data-i18n-attr="title:sessions.visualize.title"
+                    title="${t('sessions.visualize.title')}">
+              <span>📊</span> <span data-i18n="sessions.visualize">${t('sessions.visualize')}</span>
+            </button>
+            <button class="neuro_btn neuro_btn-outline neuro_btn-small"
                     onclick="SessionsManager.download('${session}')"
-                    title="Télécharger CSV">
+                    data-i18n-attr="title:sessions.csv.title"
+                    title="${t('sessions.csv.title')}">
               <span>⬇️</span> CSV
             </button>
           </div>
@@ -835,23 +919,30 @@ const SessionsManager = {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    UI.showToast(`Téléchargement: ${filename}`, 'success');
+    UI.showToast(t('toast.downloading', { file: filename }), 'success');
+  },
+
+  visualize(filename) {
+    // Ouvrir la page de visualisation dans un nouvel onglet
+    const url = `/viewer?file=${encodeURIComponent(filename)}`;
+    window.open(url, '_blank');
+    UI.showToast(t('toast.opening'), 'info');
   },
 
   refresh() {
     const btn = document.querySelector('.neuro_sessions-refresh-btn');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="neuro_btn-text">Actualisation...</span>';
+      btn.innerHTML = UI.i18nSpan('sessions.refreshing', 'neuro_btn-text');
     }
 
-    UI.showToast('Actualisation des sessions...', 'info', 2000);
+    UI.showToast(t('toast.refreshingSessions'), 'info', 2000);
 
     this.load().finally(() => {
       if (btn) {
         setTimeout(() => {
           btn.disabled = false;
-          btn.innerHTML = '<span>🔄</span><span class="neuro_btn-text">Actualiser</span>';
+          btn.innerHTML = '<span>🔄</span>' + UI.i18nSpan('sessions.refresh', 'neuro_btn-text');
         }, 1000);
       }
     });
@@ -880,7 +971,7 @@ const ChartManager = {
           'Gamma\n30-100 Hz'
         ],
         datasets: [{
-          label: 'Power (μV²/Hz)',
+          label: t('chart.power.label'),
           data: [0, 0, 0, 0, 0],
           backgroundColor: [
             'rgba(99, 102, 241, 0.8)',
@@ -930,7 +1021,7 @@ const ChartManager = {
           },
           y: {
             min: 0,
-            max: 20,
+            max: 30,
             grid: { color: 'rgba(0, 0, 0, 0.05)' },
             ticks: {
               stepSize: 2,
@@ -949,6 +1040,17 @@ const ChartManager = {
     if (!canvas) return;
 
     NeuroApp.state.charts.eegRaw = new EEGRawChart(canvas);
+  },
+
+  /**
+   * Réapplique la langue courante aux graphiques (légendes, infobulles, axes).
+   */
+  applyLanguage() {
+    const chart = NeuroApp.state.charts.brainwaves;
+    if (!chart) return;
+
+    chart.data.datasets[0].label = t('chart.power.label');
+    chart.update('none');
   }
 };
 
@@ -958,12 +1060,7 @@ const ChartManager = {
 
 const Utils = {
   formatTimestamp(timestamp) {
-    if (!timestamp) return '--';
-    try {
-      return new Date(timestamp).toLocaleTimeString('fr-FR');
-    } catch {
-      return '--';
-    }
+    return I18n.formatTime(timestamp);
   },
 
   initClock() {
@@ -971,7 +1068,7 @@ const Utils = {
     if (!timeEl) return;
 
     const updateClock = () => {
-      timeEl.textContent = new Date().toLocaleTimeString('fr-FR');
+      timeEl.textContent = I18n.formatTime(Date.now());
     };
 
     updateClock();
@@ -1007,12 +1104,37 @@ function initializeApp() {
     el.classList.add('neuro_quality-poor');
   });
 
+  // Réappliquer la langue à tout ce qui est généré dynamiquement
+  I18n.onChange(applyLanguage);
+
   // Message de bienvenue
-  UI.showToast(
-    'Application prête ! Allumez votre casque Neurosity puis cliquez "Connecter"',
-    'info',
-    8000
+  UI.showToast(t('toast.welcome'), 'info', 8000);
+}
+
+/**
+ * Rejoue le rendu de tout ce que le JS a produit dynamiquement :
+ * statuts, boutons, horodatages, liste des sessions et graphiques.
+ */
+function applyLanguage() {
+  UI.updateConnectionStatus(
+    NeuroApp.state.isConnected,
+    NeuroApp.state.isRecording,
+    NeuroApp.state.isMonitoring
   );
+  UI.updateDeviceStatus(NeuroApp.state.deviceStatus || {});
+  UI.updateLastUpdate('brainwavesTimestamp');
+  UI.updateLastUpdate('eegRawTimestamp');
+
+  ['calm', 'focus'].forEach(type => {
+    const el = document.getElementById(`${type}Timestamp`);
+    if (el && el.dataset.timestamp) {
+      el.textContent = I18n.formatTime(el.dataset.timestamp) + ' ✓';
+    }
+  });
+
+  SessionsManager.display(NeuroApp.state.sessions || []);
+  ChartManager.applyLanguage();
+  UI.showToast(t('toast.langChanged'), 'info', 2000);
 }
 
 // Event Listeners
@@ -1021,7 +1143,7 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 window.addEventListener('beforeunload', (event) => {
   if (NeuroApp.state.isRecording) {
     event.preventDefault();
-    event.returnValue = 'Un enregistrement est en cours. Êtes-vous sûr de vouloir fermer ?';
+    event.returnValue = t('confirm.unload');
     return event.returnValue;
   }
 });

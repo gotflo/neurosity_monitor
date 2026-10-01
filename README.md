@@ -15,6 +15,7 @@ Une application web moderne de monitoring en temps réel pour le casque EEG Neur
 - [⚡ Démarrage Rapide](#-démarrage-rapide)
 - [🎯 Utilisation](#-utilisation)
 - [⚙️ Configuration](#️-configuration)
+- [🌐 Langues (FR / EN)](#-langues-fr--en)
 - [📊 Données Collectées](#-données-collectées)
 - [🛠️ Technologies](#️-technologies)
 - [📁 Structure du Projet](#-structure-du-projet)
@@ -228,32 +229,128 @@ Ouvrez votre navigateur sur : **http://localhost:5000**
 2. **Device ID** : Trouvez l'ID dans l'app mobile Neurosity ou la console web
 3. **API Access** : Assurez-vous d'avoir accès à l'API développeur
 
+## 🌐 Langues (FR / EN)
+
+Toute la plateforme est bilingue : **français par défaut**, anglais au choix
+de l'utilisateur. Le basculement est instantané, sans rechargement, et couvre
+l'intégralité de l'interface — y compris les **graphiques** (titres, légendes,
+axes, infobulles), les notifications, les boîtes de confirmation, les messages
+d'erreur du serveur, ainsi que les formats de date, d'heure et de nombre.
+
+### Où changer de langue
+
+| Page | Emplacement du sélecteur |
+|------|--------------------------|
+| Tableau de bord | Barre de navigation, bouton `FR` / `EN` |
+| Configuration | Section « Paramètres optionnels » → « Langue de l'interface » |
+| Visualisation CSV | En-tête, à droite du titre |
+
+Le choix est mémorisé dans le `localStorage`, dans un cookie `neuro_lang`
+(lu par Flask pour rendre `<html lang>` dès le premier affichage) et dans la
+configuration chiffrée de l'utilisateur via `POST /api/language`.
+
+### Architecture
+
+| Fichier | Rôle |
+|---------|------|
+| `static/js/i18n.js` | Moteur côté client : dictionnaires FR/EN, `t()`, sélecteur, formats localisés |
+| `static/css/i18n.css` | Styles du sélecteur de langue |
+| `i18n.py` | Messages côté serveur (réponses d'API, console) + `lang`/`t` dans Jinja |
+
+Les réponses d'API renvoient un **code stable** (`{'error': ..., 'code': 'device_not_detected'}`)
+en plus du texte : le client traduit lui-même le message, quelle que soit la
+langue du serveur.
+
+### Traduire le HTML
+
+```html
+<span data-i18n="metric.calm">Calme</span>                    <!-- textContent -->
+<div  data-i18n-html="replay.hint">...</div>                  <!-- innerHTML -->
+<input data-i18n-attr="placeholder:settings.email.placeholder"><!-- attributs -->
+<div data-i18n-switcher></div>                                <!-- sélecteur FR/EN -->
+```
+
+Le texte écrit dans le HTML sert de repli français : il est remplacé au
+chargement par la valeur du dictionnaire.
+
+### Traduire le JavaScript
+
+```js
+t('toast.connected')                        // chaîne simple
+t('toast.downloading', { file: nom })       // interpolation {file}
+I18n.plural('sessions.count', n)            // .zero / .one / .other
+I18n.formatTime(ts)                         // heure selon la locale
+I18n.fromServer(reponse, 'toast.unknownError') // message d'API via son code
+I18n.onChange(() => { /* re-rendu dynamique */ })
+```
+
+Tout contenu généré en JavaScript (liste des sessions, boutons d'état,
+graphiques) est re-rendu via un callback `I18n.onChange`.
+
+### Ajouter une langue
+
+1. Ajouter le code (ex. `'es'`) à `SUPPORTED` et un dictionnaire dans
+   `static/js/i18n.js`, plus une entrée dans `LOCALES` (ex. `'es-ES'`).
+2. Ajouter la même langue à `SUPPORTED_LANGS` et à `TRANSLATIONS` dans `i18n.py`.
+3. Le sélecteur FR/EN se construit à partir de `SUPPORTED` : aucun HTML à modifier.
+
+Une clé absente d'une langue retombe automatiquement sur le français, avec un
+avertissement dans la console du navigateur.
+
 ## 📊 Données Collectées
 
 ### **Format CSV (Délimiteur `;`)**
 
+Une session produit **68 colonnes**. Les 8 électrodes du Crown sont, dans
+l'ordre : `CP3, C3, F5, PO3, PO4, F6, C4, CP4`.
+
 | Colonne | Description | Format |
 |---------|-------------|---------|
-| `timestamp` | Horodatage ISO | `2025-06-09T14:30:15.123Z` |
-| `unix_timestamp` | Timestamp Unix | `1717934415.123` |
-| `session_duration` | Durée depuis début session | `125.45` (secondes) |
+| `timestamp` | Horodatage ISO | `2025-06-09T14:30:15.123456` |
+| `session_duration` | Durée depuis le début de la session | `125.45` (secondes) |
 | `calm_probability` | Probabilité de calme | `0.75` (0-1) |
-| `calm_percentage` | Pourcentage de calme | `75.0` (0-100) |
 | `focus_probability` | Probabilité de concentration | `0.68` (0-1) |
-| `focus_percentage` | Pourcentage de concentration | `68.0` (0-100) |
-| `attention_probability` | Probabilité d'attention | `0.82` (0-1) |
-| `attention_percentage` | Pourcentage d'attention | `82.0` (0-100) |
-| `delta_avg` | Moyenne onde Delta | `0.245` |
-| `delta_max` | Maximum onde Delta | `0.456` |
-| `delta_min` | Minimum onde Delta | `0.123` |
-| `delta_std` | Écart-type onde Delta | `0.089` |
-| `delta_raw` | Données brutes Delta | `[0.1,0.2,...]` (JSON) |
-| `theta_*` | Idem pour onde Theta | ... |
-| `alpha_*` | Idem pour onde Alpha | ... |
-| `beta_*` | Idem pour onde Beta | ... |
-| `gamma_*` | Idem pour onde Gamma | ... |
-| `device_id` | ID du casque | `crown-abc123` |
-| `session_name` | Nom de la session | `neurosity_session_20250609_143015` |
+| `delta_<électrode>` | Puissance Delta, **une colonne par électrode** (8) | `0.245` (µV²) |
+| `theta_<électrode>` | Idem pour Theta (8) | `0.312` (µV²) |
+| `alpha_<électrode>` | Idem pour Alpha (8) | `1.874` (µV²) |
+| `beta_<électrode>` | Idem pour Beta (8) | `0.593` (µV²) |
+| `gamma_<électrode>` | Idem pour Gamma (8) | `0.104` (µV²) |
+| `eeg_<électrode>` | Signal brut moyenné sur le paquet reçu (8) | `-12.482` (µV) |
+| `signal_status_<électrode>` | Qualité du contact électrode-peau (8) | `great` \| `good` \| `bad` \| `noContact` |
+| `signal_std_<électrode>` | Écart-type du signal servant à évaluer la qualité (8) | `1.732` |
+
+Exemple de noms complets : `delta_CP3`, `eeg_PO4`, `signal_status_F5`, `signal_std_C4`.
+
+### **Qualité du signal (`signalQuality`)**
+
+Reprend le type du SDK Neurosity
+([`signalQuality.ts`](https://github.com/neurosity/neurosity-sdk-js/blob/main/src/types/signalQuality.ts)) :
+chaque canal expose un `status` et un `standardDeviation`.
+
+| Statut | Signification |
+|--------|---------------|
+| `great` | Contact excellent, signal exploitable |
+| `good` | Contact correct |
+| `bad` | Contact dégradé, données à interpréter avec prudence |
+| `noContact` | Électrode non en contact, données non exploitables |
+
+Ces colonnes permettent d'**écarter a posteriori les segments enregistrés avec un
+mauvais contact**, ce qui était impossible auparavant : la qualité n'était
+affichée qu'en temps réel sur le tableau de bord.
+
+Comportement d'écriture : la qualité du signal est une **métadonnée
+d'acquisition**. Elle met à jour un buffer mais ne crée pas de ligne à elle
+seule ; la dernière valeur connue est jointe à la prochaine ligne produite par
+les flux calm / focus / brainwaves / EEG brut. La cadence des lignes reste donc
+identique aux sessions précédentes. Une électrode dont aucune mesure n'est
+encore arrivée laisse la cellule vide.
+
+`analyze_session()` (route `/analyze/<fichier>`) renvoie en plus, par électrode :
+la répartition des statuts, le statut dominant, le pourcentage de temps
+exploitable (`great` + `good`) et les statistiques d'écart-type.
+
+> **Compatibilité** : les sessions enregistrées avant l'ajout de ces colonnes
+> restent lisibles et analysables, sans colonne `signal_*`.
 
 ### **Fréquences des Ondes Cérébrales**
 

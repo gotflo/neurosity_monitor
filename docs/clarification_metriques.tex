@@ -1,0 +1,70 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[margin=1.8cm]{geometry}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\setlist{nosep}
+\setlength{\parskip}{2pt}
+\setlength{\parindent}{0pt}
+
+\title{\vspace{-1.5cm}Clarification des mesures cognitives du Neurosity Monitor}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-1.2cm}
+
+
+\paragraph{1. Métriques cognitives dérivées.}
+L'\textbf{engagement} est calculé selon la formule classique de Pope, Bogart \& Bartolome,
+\[
+\mathrm{Engagement} \;=\; \frac{\beta}{\alpha + \theta},
+\]
+formule reconfirmée par les travaux récents sur l'estimation en temps réel et les revues systématiques des indices spectraux \cite{Coelli2015,Cattan2023,Apicella2024}. La \textbf{relaxation} est implémentée comme $\alpha/(\beta+\gamma)$ ; la convention de la littérature reste plutôt $\alpha/\beta$ \cite{Putman2023,Brandmeyer2024}. Inclure la bande gamma sur le Neurosity Crown est délicat car cette bande est très sensible à l'activité musculaire (mâchoire, sourcils), ce que nous avons documenté dans le code. La \textbf{charge cognitive} est codée $(\theta+\beta)/\alpha$, alors que les indices canoniques sont $\theta/\alpha$ (Task Load Index, Gevins) ou le rapport $\theta$ frontal sur $\alpha$ pariétal de Holm \emph{et al.}, validés par la méta-analyse de Chikhi \emph{et al.} \cite{Chikhi2022,RaufiLongo2022}. Sur le plan visuel, le graphique avait été mis en cause parce qu'engagement et relaxation apparaissaient tous deux en vert ; la palette a été corrigée (relaxation passe désormais en indigo).
+
+\paragraph{2. Ratios cognitifs.}
+Les libellés affichés correspondent bien aux formules calculées : $\theta/\beta$ pour la baisse d'attention \cite{vanSon2019}, $\beta/\alpha$ pour la vigilance et $\delta/\beta$ pour la déconnexion. C'est un \textbf{indice de ralentissement EEG} : la valeur monte lorsque les ondes lentes prennent le dessus, c'est-à-dire lorsque le sujet \emph{se désactive} (somnolence, baisse de vigilance). Cette interprétation est cohérente avec les travaux sur la fatigue et la somnolence au volant qui utilisent les mêmes familles de ratios slow/fast \cite{DiFlumeri2022,Yusoff2023,Arico2023}. Le libellé du graphique a donc été remplacé par \og Ralentissement EEG $(\delta+\theta)/(\alpha+\beta)$, haut~=~somnolence~\fg{}.
+
+\paragraph{3. Asymétries EEG.}
+Le graphique des asymétries trace, sur chaque paire d'électrodes homologues, une \emph{différence en logarithme} des puissances alpha entre les deux hémisphères. Ce n'est donc pas la valeur des zones paires seules : c'est bien la différence entre droite et gauche, exprimée en log pour rendre la mesure additive et indépendante de l'échelle absolue. La convention dominante dans la littérature, suivie notamment par les revues méthodologiques récentes, est
+\[
+\mathrm{FAA} \;=\; \ln(\alpha_{\mathrm{droite}}) - \ln(\alpha_{\mathrm{gauche}}),
+\]
+soit $\ln F6 - \ln F5$ pour la zone frontale, $\ln C4 - \ln C3$ pour la zone centrale et $\ln PO4 - \ln PO3$ pour la zone pariétale \cite{Smith2017,Reznik2018,MendezBertolo2024,Gilam2022}. Comme l'alpha est inversement lié à l'activité corticale (l'alpha est un marqueur d'inhibition), la lecture est la suivante : une valeur \textbf{positive} traduit davantage d'alpha à droite, donc une activité gauche relativement plus forte, associée à la motivation d'\textbf{approche} et à l'affect positif (système BAS) ; une valeur \textbf{négative} traduit l'inverse, soit une dominance droite et une motivation de \textbf{retrait} (système BIS). Il faut toutefois nuancer cette interprétation~: certaines études récentes montrent que l'asymétrie droite peut aussi refléter le \emph{contrôle régulateur} plutôt que l'affect négatif lui-même \cite{Neal2019,Smith2017}
+
+\paragraph{Synthèse des corrections apportées au Neurosity Monitor.}
+\begin{itemize}
+\item Couleur de la courbe de relaxation modifiée pour la distinguer visuellement de l'engagement.
+\item Sens des trois asymétries inversé pour respecter la convention $\ln(\mathrm{droite}) - \ln(\mathrm{gauche})$.
+\item Libellé \og Activation Level~\fg{} remplacé par \og Ralentissement EEG : haut~=~somnolence~\fg{}.
+\item Commentaires enrichis dans \texttt{csv\_analyzer.py} pour signaler les formules non canoniques (relaxation, charge cognitive) avec leurs références.
+\end{itemize}
+
+
+
+\vspace{+70pt}
+\begin{thebibliography}{99}
+\footnotesize
+\bibitem{Coelli2015} Coelli, S. \emph{et al.} (2015). EEG-based index for engagement level monitoring during sustained attention. \emph{Proc.\ IEEE EMBC}.
+\bibitem{Cattan2023} Cattan, G. (2023). Ratio Indexes Based on Spectral EEG Brainwaves for Assessment of Mental Involvement: A Systematic Review. \emph{Sensors} 23(13):5968.
+\bibitem{Apicella2024} Apicella, A. \emph{et al.} (2024). Real-time estimation of EEG-based engagement in different tasks. \emph{J. Neural Eng.} 21(2).
+\bibitem{Chikhi2022} Chikhi, S., Matton, N., Sanna, M. (2022). EEG power spectral measures of cognitive workload: A meta-analysis. \emph{Psychophysiology} 59(6):e14009.
+\bibitem{RaufiLongo2022} Raufi, B., Longo, L. (2022). An Evaluation of the EEG Alpha-to-Theta and Theta-to-Alpha Band Ratios as Indexes of Mental Workload. \emph{Front.\ Neuroinform.} 16:861967.
+\bibitem{Putman2023} Putman, P. \emph{et al.} (2023). Central EEG Beta/Alpha Ratio Predicts the Population-Wide Efficiency of Advertisements. \emph{Brain Sci.} 13(1):57.
+\bibitem{Brandmeyer2024} Brandmeyer, T., Delorme, A. (2024). Mindfulness meditation is associated with global EEG spectral changes in theta, alpha, and beta amplitudes. \emph{Int.\ J. Psychophysiol.}
+\bibitem{vanSon2019} van Son, D. \emph{et al.} (2019). EEG theta/beta ratio covaries with mind wandering and functional connectivity in the executive control network. \emph{Int.\ J. Psychophysiol.}
+\bibitem{DiFlumeri2022} Di Flumeri, G. \emph{et al.} (2022). EEG-Based Index for Timely Detecting User's Drowsiness Occurrence in Automotive Applications. \emph{Front.\ Hum.\ Neurosci.} 16:866118.
+\bibitem{Yusoff2023} Yusoff, M.Z. \emph{et al.} (2023). Prediction of drowsiness using EEG signals in young Indonesian drivers. \emph{Heliyon} 9(10):e20336.
+\bibitem{Arico2023} Aricò, P. \emph{et al.} (2023). Neurophysiological mental fatigue assessment for developing user-centered AI for autonomous driving. \emph{Front.\ Neurorobot.} 17:1240933.
+\bibitem{Smith2017} Smith, E.E. \emph{et al.} (2017). Assessing and conceptualizing frontal EEG asymmetry: An updated primer on recording, processing, analyzing, and interpreting frontal alpha asymmetry. \emph{Int.\ J. Psychophysiol.} 111:98--114.
+\bibitem{Reznik2018} Reznik, S.J., Allen, J.J.B. (2018). Frontal asymmetry as a mediator and moderator of emotion: An updated review. \emph{Psychophysiology} 55(1):e12965.
+\bibitem{MendezBertolo2024} Méndez-Bértolo, C. \emph{et al.} (2024). Using different methods for calculating frontal alpha asymmetry to study its development from infancy to 3 years of age. \emph{Dev.\ Psychobiol.}
+\bibitem{Gilam2022} Gilam, G. \emph{et al.} (2022). Frontal alpha asymmetry: A potential biomarker of approach-withdrawal motivation towards pain. \emph{Front.\ Pain Res.} 3:962722.
+\bibitem{Neal2019} Neal, L.B., Gable, P.A. (2019). Effortful control of motivation, not withdrawal motivation, relates to greater right frontal asymmetry. \emph{Biol.\ Psychol.} 149:107770.
+\end{thebibliography}
+
+\end{document}
